@@ -1,24 +1,96 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { CommandDescriptor } from '../types';
 import { FaChevronLeft, FaTimes } from 'react-icons/fa';
+
+const HANDLE_WIDTH = 32; // px
+const HANDLE_HEIGHT = 64; // px
 
 interface BottomViewportToolbarProps {
   commands: CommandDescriptor[];
   zoomPercentage: number;
+  handlePosition: { x: number; y: number };
+  onPositionChange: (newPos: { x: number; y: number }) => void;
 }
 
 const BottomViewportToolbar: React.FC<BottomViewportToolbarProps> = ({ 
   commands, 
-  zoomPercentage 
+  zoomPercentage,
+  handlePosition,
+  onPositionChange
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [originalPosition, setOriginalPosition] = useState({ x: 0, y: 0 });
+  const handleRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - handlePosition.x,
+      y: e.clientY - handlePosition.y
+    });
+    setOriginalPosition(handlePosition);
+    e.preventDefault();
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    const newX = e.clientX - dragStart.x;
+    const newY = e.clientY - dragStart.y;
+    
+    const maxX = window.innerWidth - HANDLE_WIDTH;
+    
+    onPositionChange({
+      x: Math.max(0, Math.min(newX, maxX)),
+      y: newY
+    });
+  };
+
+  const handleMouseUp = () => {
+    if (!isDragging) return;
+
+    const distance = Math.sqrt(
+      Math.pow(handlePosition.x - originalPosition.x, 2) +
+      Math.pow(handlePosition.y - originalPosition.y, 2)
+    );
+
+    setIsDragging(false);
+
+    if (distance < 5) {
+      setIsExpanded(true);
+    } else {
+      const centerX = window.innerWidth / 2;
+      const finalX = handlePosition.x + (HANDLE_WIDTH / 2) < centerX ? 0 : window.innerWidth - HANDLE_WIDTH;
+      
+      onPositionChange({
+        x: finalX,
+        y: handlePosition.y
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, dragStart, handlePosition, originalPosition, onPositionChange]);
 
   const zoomInCommand = commands.find(c => c.id === 'zoom-in');
   const zoomOutCommand = commands.find(c => c.id === 'zoom-out');
   const otherCommands = commands.filter(c => c.id !== 'zoom-in' && c.id !== 'zoom-out');
   
-  // Display 100 if zoomPercentage is not a valid number
   const displayZoom = !isNaN(zoomPercentage) ? zoomPercentage : 100;
+
+  const isOnLeftSide = handlePosition.x < window.innerWidth / 2;
 
   const IconButton: React.FC<{ command: CommandDescriptor }> = ({ command }) => (
     <div className="group relative flex items-center">
@@ -54,27 +126,46 @@ const BottomViewportToolbar: React.FC<BottomViewportToolbarProps> = ({
       {/* Collapsed Handle */}
       {!isExpanded && (
         <div
-          onClick={() => setIsExpanded(true)}
-          className="fixed bottom-1/4 right-0 z-50 group cursor-pointer"
+          ref={handleRef}
+          onMouseDown={handleMouseDown}
+          style={{
+            position: 'fixed',
+            left: `${handlePosition.x}px`,
+            top: `${handlePosition.y}px`,
+            height: `${HANDLE_HEIGHT}px`,
+            width: `${HANDLE_WIDTH}px`,
+            zIndex: 50,
+            cursor: isDragging ? 'grabbing' : 'grab',
+            transition: 'left 0.2s ease-out, top 0.1s linear'
+          }}
+          className="group"
         >
           {/* Custom Tooltip */}
-          <div className="
-            absolute top-1/2 -translate-y-1/2 right-full mr-3
-            px-3 py-1 bg-gray-800 text-white text-sm rounded-md shadow-lg
+          <div className={`
+            absolute top-1/2 -translate-y-1/2 px-3 py-1 bg-gray-800 text-white text-sm rounded-md shadow-lg
             opacity-0 group-hover:opacity-100 transition-opacity duration-300
             whitespace-nowrap pointer-events-none
-          ">
+            ${isOnLeftSide ? 'left-full ml-3' : 'right-full mr-3'}
+          `}>
             展开视图工具栏
           </div>
 
-          <div className="
-            w-8 h-20 bg-gray-800/30 hover:bg-gray-800/60 backdrop-blur-md
-            rounded-l-lg shadow-lg
+          <div className={`
+            w-full h-full bg-gray-800/30 hover:bg-gray-800/60 backdrop-blur-md
+            shadow-lg
             flex items-center justify-center
             transition-all duration-300 ease-in-out
-            transform translate-x-4 group-hover:translate-x-0
-          ">
-            <FaChevronLeft className="text-white/70 group-hover:text-white transition-colors" />
+            select-none
+            transform
+            ${isOnLeftSide 
+              ? 'rounded-r-lg translate-x-[-24px] group-hover:translate-x-0' 
+              : 'rounded-l-lg translate-x-[24px] group-hover:translate-x-0'
+            }
+          `}>
+            <FaChevronLeft className={`
+              text-white/70 group-hover:text-white transition-transform duration-300
+              ${isOnLeftSide ? 'rotate-180' : ''}
+            `} />
           </div>
         </div>
       )}

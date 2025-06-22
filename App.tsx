@@ -14,6 +14,10 @@ import {
   FaCompressArrowsAlt, FaLock, FaUnlock, FaCrosshairs, FaVectorSquare
 } from 'react-icons/fa';
 
+const HANDLE_WIDTH = 32; // px
+const HANDLE_HEIGHT = 64; // px
+const HANDLE_VERTICAL_PADDING = 10; // px
+
 function App() {
   const [canvasSize, setCanvasSize] = useState<{width: number, height: number} | null>(null);
   const mindMapHook = useMindMap(canvasSize);
@@ -24,6 +28,34 @@ function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   const [isSearchVisible, setIsSearchVisible] = useState(false);
+  
+  // 统一管理工具栏拉手位置
+  const [topHandlePosition, setTopHandlePosition] = useState({ 
+    x: window.innerWidth - HANDLE_WIDTH, 
+    y: window.innerHeight * 0.25 
+  });
+  const [bottomHandlePosition, setBottomHandlePosition] = useState({ 
+    x: window.innerWidth - HANDLE_WIDTH, 
+    y: window.innerHeight * 0.75 
+  });
+
+  // 更新顶部拉手位置并防止重叠
+  const updateTopHandlePosition = (newPos: { x: number; y: number }) => {
+    const newY = Math.max(
+      0, 
+      Math.min(newPos.y, bottomHandlePosition.y - HANDLE_HEIGHT - HANDLE_VERTICAL_PADDING)
+    );
+    setTopHandlePosition({ x: newPos.x, y: newY });
+  };
+
+  // 更新底部拉手位置并防止重叠
+  const updateBottomHandlePosition = (newPos: { x: number; y: number }) => {
+    const newY = Math.min(
+      window.innerHeight - HANDLE_HEIGHT, 
+      Math.max(newPos.y, topHandlePosition.y + HANDLE_HEIGHT + HANDLE_VERTICAL_PADDING)
+    );
+    setBottomHandlePosition({ x: newPos.x, y: newY });
+  };
 
   // 监听画布尺寸变化
   useEffect(() => {
@@ -522,13 +554,19 @@ function App() {
 
   return (
     <div ref={appContainerRef} className="w-screen h-screen flex flex-col bg-gray-200 overflow-hidden">
-      <Toolbar commands={topToolbarCommands} />
+      <Toolbar 
+        commands={topToolbarCommands} 
+        handlePosition={topHandlePosition}
+        onPositionChange={updateTopHandlePosition}
+      />
       <div ref={canvasContainerRef} className="flex-grow w-full h-full relative overflow-hidden">
         {canvasSize && <MindMapCanvas mindMapHookInstance={mindMapHook} />}
       </div>
-      <BottomViewportToolbar
-        commands={bottomToolbarCommands}
+      <BottomViewportToolbar 
+        commands={bottomToolbarCommands} 
         zoomPercentage={zoomPercentage}
+        handlePosition={bottomHandlePosition}
+        onPositionChange={updateBottomHandlePosition}
       />
       <SearchWidget
         isVisible={isSearchVisible}
