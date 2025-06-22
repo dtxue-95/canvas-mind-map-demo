@@ -94,12 +94,35 @@ function App() {
 
   // 监听搜索状态变化，当有匹配的节点时自动居中
   useEffect(() => {
-    // 当有搜索匹配且选中节点发生变化时，自动居中到选中的节点
-    if (state.highlightedNodeIds.size > 0 && state.selectedNodeId && canvasSize) {
-      const targetNode = findNodeInAST(state.rootNode, state.selectedNodeId);
-      if (targetNode) {
-        const targetWorldX = targetNode.position.x + targetNode.width / 2;
-        const targetWorldY = targetNode.position.y + targetNode.height / 2;
+    // 当有搜索匹配时，自动居中到第一个匹配的节点
+    if (state.highlightedNodeIds.size > 0 && canvasSize) {
+      // 找到第一个匹配的节点
+      let firstMatchNode: MindMapNodeAST | null = null;
+      
+      function findFirstMatchNode(node: MindMapNodeAST | null): MindMapNodeAST | null {
+        if (!node) return null;
+        
+        // 检查当前节点是否匹配
+        if (state.highlightedNodeIds.has(node.id)) {
+          return node;
+        }
+        
+        // 递归检查子节点
+        if (!node.isCollapsed) {
+          for (const child of node.children) {
+            const found = findFirstMatchNode(child);
+            if (found) return found;
+          }
+        }
+        
+        return null;
+      }
+      
+      firstMatchNode = findFirstMatchNode(state.rootNode);
+      
+      if (firstMatchNode) {
+        const targetWorldX = firstMatchNode.position.x + firstMatchNode.width / 2;
+        const targetWorldY = firstMatchNode.position.y + firstMatchNode.height / 2;
 
         // 使用当前缩放比例将视图居中到目标节点
         const newViewportX = (canvasSize.width / 2) - (targetWorldX * state.viewport.zoom);
@@ -107,7 +130,7 @@ function App() {
         setViewport({ x: newViewportX, y: newViewportY });
       }
     }
-  }, [state.highlightedNodeIds.size, state.selectedNodeId, state.rootNode, canvasSize, state.viewport.zoom, setViewport]);
+  }, [state.highlightedNodeIds.size, state.rootNode, canvasSize, state.viewport.zoom, setViewport]);
 
   // 顶部工具栏命令配置
   const topToolbarCommands = useMemo<CommandDescriptor[]>(() => {
@@ -206,10 +229,40 @@ function App() {
 
   // 居中内容处理函数
   const handleCenterContent = () => {
-    // 确定居中的目标节点：如果有选中节点则居中选中节点，否则居中根节点
-    const targetNode = state.selectedNodeId 
-      ? findNodeInAST(state.rootNode, state.selectedNodeId) 
-      : state.rootNode;
+    // 确定居中的目标节点：
+    // 1. 如果有搜索匹配，优先居中到第一个匹配的节点
+    // 2. 如果有选中节点，居中选中节点
+    // 3. 否则居中根节点
+    let targetNode: MindMapNodeAST | null = null;
+    
+    if (state.highlightedNodeIds.size > 0) {
+      // 找到第一个匹配的节点
+      function findFirstMatchNode(node: MindMapNodeAST | null): MindMapNodeAST | null {
+        if (!node) return null;
+        
+        if (state.highlightedNodeIds.has(node.id)) {
+          return node;
+        }
+        
+        if (!node.isCollapsed) {
+          for (const child of node.children) {
+            const found = findFirstMatchNode(child);
+            if (found) return found;
+          }
+        }
+        
+        return null;
+      }
+      
+      targetNode = findFirstMatchNode(state.rootNode);
+    }
+    
+    // 如果没有匹配的节点，使用选中的节点或根节点
+    if (!targetNode) {
+      targetNode = state.selectedNodeId 
+        ? findNodeInAST(state.rootNode, state.selectedNodeId) 
+        : state.rootNode;
+    }
     
     if (targetNode && canvasSize) {
       const targetWorldX = targetNode.position.x + targetNode.width / 2;

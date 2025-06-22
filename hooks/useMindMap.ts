@@ -118,7 +118,6 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
       const searchTerm = originalTerm.toLowerCase().trim();
       const newHighlightedNodeIds = new Set<string>();
       const newExactMatchNodeIds = new Set<string>();
-      let firstMatchNodeId: string | null = null; // 记录第一个匹配的节点
 
       // 只有当搜索词不为空时才进行匹配
       if (searchTerm && searchTerm.length > 0) {
@@ -135,10 +134,6 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
             if (isExactMatch) {
               newExactMatchNodeIds.add(node.id);
             }
-            // 记录第一个匹配的节点作为中心点
-            if (firstMatchNodeId === null) {
-              firstMatchNodeId = node.id;
-            }
           }
           
           if (!node.isCollapsed) { // 仅搜索可见的子节点
@@ -154,9 +149,8 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
         ...state, 
         currentSearchTerm: originalTerm, 
         highlightedNodeIds: newHighlightedNodeIds,
-        exactMatchNodeIds: newExactMatchNodeIds,
-        // 如果有匹配的节点，将第一个匹配的节点设为选中节点（作为中心点）
-        selectedNodeId: firstMatchNodeId || state.selectedNodeId
+        exactMatchNodeIds: newExactMatchNodeIds
+        // 移除自动选中匹配节点的逻辑，匹配到的节点不应该被默认选中
       };
     }
     case 'APPLY_LAYOUT_FROM_ROOT': {
