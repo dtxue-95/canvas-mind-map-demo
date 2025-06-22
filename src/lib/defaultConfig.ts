@@ -2,13 +2,15 @@ import {
   FaPlus, FaMinus, FaTrash, FaSitemap, FaSearch, FaExpandArrowsAlt,
   FaCompressArrowsAlt, FaLock, FaUnlock, FaCrosshairs, FaVectorSquare
 } from 'react-icons/fa';
-import { ToolbarButtonConfig } from './types';
+import { MindMapNodeAST, ToolbarButtonConfig } from './types';
 import { NEW_NODE_TEXT } from './constants';
+import { findNodeAndParentInAST } from './utils/nodeUtils';
 
 type State = {
   selectedNodeId: string | null;
   isReadOnly: boolean;
   isFullscreen: boolean;
+  rootNode: MindMapNodeAST | null;
 };
 
 type Handlers = {
@@ -43,15 +45,25 @@ export const defaultBottomButtons: ToolbarButtonConfig[] = [
 
 export const getDefaultTopToolbarConfig = (state: State, handlers: Handlers): ToolbarButtonConfig[] => {
   const canAddChild = !!state.selectedNodeId;
-  const canDelete = !!state.selectedNodeId;
+  
+  let parentOfSelectedId: string | null = null;
+  if (state.selectedNodeId && state.rootNode && state.selectedNodeId !== state.rootNode.id) {
+    const result = findNodeAndParentInAST(state.rootNode, state.selectedNodeId);
+    if (result && result.parent) {
+      parentOfSelectedId = result.parent.id;
+    }
+  }
+
+  const canAddSibling = !!parentOfSelectedId;
+  const canDelete = !!state.selectedNodeId && !!state.rootNode && state.selectedNodeId !== state.rootNode.id;
 
   return [
     {
       id: 'add-node',
       label: '添加节点',
-      action: () => handlers.addNode(NEW_NODE_TEXT, null),
-      disabled: state.isReadOnly,
-      title: '添加兄弟节点 (Insert)',
+      action: () => { if (parentOfSelectedId) handlers.addNode(NEW_NODE_TEXT, parentOfSelectedId); },
+      disabled: state.isReadOnly || !canAddSibling,
+      title: canAddSibling ? '添加兄弟节点 (Insert)' : '请选择一个非根节点以添加兄弟节点',
       icon: FaPlus,
       visible: true,
     },
@@ -69,7 +81,7 @@ export const getDefaultTopToolbarConfig = (state: State, handlers: Handlers): To
       label: '删除节点',
       action: () => { if (canDelete) handlers.deleteNode(state.selectedNodeId!); },
       disabled: !canDelete || state.isReadOnly,
-      title: canDelete ? '删除节点 (Delete)' : '请先选择一个节点',
+      title: canDelete ? '删除节点 (Delete)' : '请先选择一个节点（根节点无法删除）',
       icon: FaTrash,
       visible: true,
     },

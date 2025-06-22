@@ -132,6 +132,7 @@ export default function ReactMindMap({
     selectedNodeId: state.selectedNodeId,
     isReadOnly: state.isReadOnly,
     isFullscreen: isFullscreen,
+    rootNode: state.rootNode,
   }, handlers)).filter((btn: ToolbarButtonConfig) => btn.visible !== false);
   
   // 包装 setViewport，便于调试
