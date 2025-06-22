@@ -189,12 +189,16 @@ function App() {
 
   // 居中内容处理函数
   const handleCenterContent = () => {
-    const rootForCentering = state.rootNode; // 实际的根 AST 节点
-    if (rootForCentering && canvasSize) {
-      const targetWorldX = rootForCentering.position.x + rootForCentering.width / 2;
-      const targetWorldY = rootForCentering.position.y + rootForCentering.height / 2;
+    // 确定居中的目标节点：如果有选中节点则居中选中节点，否则居中根节点
+    const targetNode = state.selectedNodeId 
+      ? findNodeInAST(state.rootNode, state.selectedNodeId) 
+      : state.rootNode;
+    
+    if (targetNode && canvasSize) {
+      const targetWorldX = targetNode.position.x + targetNode.width / 2;
+      const targetWorldY = targetNode.position.y + targetNode.height / 2;
 
-      // 使用当前缩放比例将视图居中到根节点
+      // 使用当前缩放比例将视图居中到目标节点
       const newViewportX = (canvasSize.width / 2) - (targetWorldX * state.viewport.zoom);
       const newViewportY = (canvasSize.height / 2) - (targetWorldY * state.viewport.zoom);
       setViewport({ x: newViewportX, y: newViewportY });
