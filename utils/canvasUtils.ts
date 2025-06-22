@@ -6,7 +6,8 @@ import {
   MIN_NODE_WIDTH, MAX_NODE_WIDTH, CHILD_H_SPACING,
   NODE_HIGHLIGHT_BORDER_COLOR, NODE_HIGHLIGHT_BORDER_WIDTH, NODE_SEARCH_TEXT_MATCH_COLOR,
   NODE_DEFAULT_HEIGHT, COLLAPSE_BUTTON_RADIUS, COLLAPSE_BUTTON_COLOR, COLLAPSE_BUTTON_SYMBOL_COLOR,
-  NODE_SHADOW_COLOR, NODE_SHADOW_BLUR, NODE_SHADOW_OFFSET_X, NODE_SHADOW_OFFSET_Y
+  NODE_SHADOW_COLOR, NODE_SHADOW_BLUR, NODE_SHADOW_OFFSET_X, NODE_SHADOW_OFFSET_Y,
+  NODE_EXACT_MATCH_BACKGROUND_COLOR
 } from '../constants';
 
 // 离屏Canvas上下文，用于文本测量
@@ -157,6 +158,7 @@ export function calculateNodeDimensions(text: string): { width: number; height: 
  * @param isSelected 是否选中
  * @param isEditing 是否正在编辑
  * @param isHighlighted 是否高亮
+ * @param isExactMatch 是否精确匹配
  * @param currentSearchTerm 当前搜索词
  */
 export function drawNode(
@@ -165,9 +167,15 @@ export function drawNode(
   isSelected: boolean,
   isEditing?: boolean,
   isHighlighted?: boolean,
+  isExactMatch?: boolean,
   currentSearchTerm?: string
 ): void {
-  ctx.fillStyle = node.color;
+  // 如果是精确匹配，使用淡黄色背景
+  if (isExactMatch) {
+    ctx.fillStyle = NODE_EXACT_MATCH_BACKGROUND_COLOR;
+  } else {
+    ctx.fillStyle = node.color;
+  }
   
   ctx.save();
   ctx.shadowColor = NODE_SHADOW_COLOR;

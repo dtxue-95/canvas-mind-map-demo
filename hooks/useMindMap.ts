@@ -16,6 +16,7 @@ const initialState: MindMapState = {
   viewport: { x: 0, y: 0, zoom: INITIAL_ZOOM },
   currentSearchTerm: "",
   highlightedNodeIds: new Set<string>(),
+  exactMatchNodeIds: new Set<string>(),
   isReadOnly: false,
 };
 
@@ -104,6 +105,7 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
         selectedNodeId: laidOutData ? laidOutData.id : null,
         currentSearchTerm: "", // 明确重置搜索词
         highlightedNodeIds: new Set<string>(), // 明确重置高亮节点集合
+        exactMatchNodeIds: new Set<string>(), // 明确重置精确匹配节点集合
         viewport: { // 加载新数据时重置视口
           x: (0 + CHILD_H_SPACING / 2),
           y: 0,
@@ -115,14 +117,30 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
       const originalTerm = action.payload;
       const searchTerm = originalTerm.toLowerCase().trim();
       const newHighlightedNodeIds = new Set<string>();
+      const newExactMatchNodeIds = new Set<string>();
+      let firstMatchNodeId: string | null = null; // 记录第一个匹配的节点
 
       // 只有当搜索词不为空时才进行匹配
       if (searchTerm && searchTerm.length > 0) {
         function traverseAndHighlight(node: MindMapNodeAST | null) {
           if (!node) return;
-          if (node.text.toLowerCase().includes(searchTerm)) {
+          
+          const nodeTextLower = node.text.toLowerCase();
+          const isExactMatch = nodeTextLower === searchTerm;
+          const isFuzzyMatch = nodeTextLower.includes(searchTerm);
+          
+          if (isExactMatch || isFuzzyMatch) {
             newHighlightedNodeIds.add(node.id);
+            // 如果是精确匹配，添加到精确匹配集合
+            if (isExactMatch) {
+              newExactMatchNodeIds.add(node.id);
+            }
+            // 记录第一个匹配的节点作为中心点
+            if (firstMatchNodeId === null) {
+              firstMatchNodeId = node.id;
+            }
           }
+          
           if (!node.isCollapsed) { // 仅搜索可见的子节点
             node.children.forEach(traverseAndHighlight);
           }
@@ -132,7 +150,14 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
       // 如果搜索词为空或只包含空白字符，newHighlightedNodeIds 保持为空集合，清除所有高亮
 
       // 使用原始输入值更新状态，保持输入框的值与状态一致
-      return { ...state, currentSearchTerm: originalTerm, highlightedNodeIds: newHighlightedNodeIds };
+      return { 
+        ...state, 
+        currentSearchTerm: originalTerm, 
+        highlightedNodeIds: newHighlightedNodeIds,
+        exactMatchNodeIds: newExactMatchNodeIds,
+        // 如果有匹配的节点，将第一个匹配的节点设为选中节点（作为中心点）
+        selectedNodeId: firstMatchNodeId || state.selectedNodeId
+      };
     }
     case 'APPLY_LAYOUT_FROM_ROOT': {
       if (!state.rootNode) return state;

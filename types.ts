@@ -82,6 +82,7 @@ export interface MindMapState {
   viewport: Viewport;                     // 当前视口状态
   currentSearchTerm: string;              // 当前搜索词
   highlightedNodeIds: Set<string>;        // 高亮显示的节点ID集合
+  exactMatchNodeIds: Set<string>;         // 精确匹配的节点ID集合
   isReadOnly: boolean;                    // 是否为只读模式
 }
 

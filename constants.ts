@@ -14,6 +14,7 @@ export const NODE_SELECTED_BORDER_WIDTH = 2.5;
 export const NODE_HIGHLIGHT_BORDER_COLOR = '#FFD700'; // 金色高亮边框
 export const NODE_SEARCH_TEXT_MATCH_COLOR = '#FF0000'; // 红色搜索匹配文本
 export const NODE_HIGHLIGHT_BORDER_WIDTH = 3.0;
+export const NODE_EXACT_MATCH_BACKGROUND_COLOR = '#FEF3C7'; // 淡黄色精确匹配背景
 
 // 节点宽度限制
 export const MIN_NODE_WIDTH = 80; // 节点最小宽度

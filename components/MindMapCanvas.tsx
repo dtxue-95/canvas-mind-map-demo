@@ -46,7 +46,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
   const {
     rootNode, // Changed from nodes and rootId
     selectedNodeId, editingNodeId, viewport,
-    currentSearchTerm, highlightedNodeIds, isReadOnly
+    currentSearchTerm, highlightedNodeIds, exactMatchNodeIds, isReadOnly
   } = state;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -88,7 +88,8 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
     currentSelectedNodeId: string | null,
     currentEditingNodeId: string | null,
     searchTerm: string,
-    highlightIds: Set<string>
+    highlightIds: Set<string>,
+    exactMatchIds: Set<string>
   ) => {
     if (!node) return;
 
@@ -99,6 +100,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
       node.id === currentSelectedNodeId,
       node.id === currentEditingNodeId,
       highlightIds.has(node.id),
+      exactMatchIds.has(node.id),
       searchTerm
     );
 
@@ -128,7 +130,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
     if (!node.isCollapsed && node.children && node.children.length > 0) {
       for (const childNode of node.children) {
         if (childNode) {
-          drawBranchRecursive(ctx, childNode, currentViewport, currentSelectedNodeId, currentEditingNodeId, searchTerm, highlightIds);
+          drawBranchRecursive(ctx, childNode, currentViewport, currentSelectedNodeId, currentEditingNodeId, searchTerm, highlightIds, exactMatchIds);
         }
       }
     }
@@ -156,11 +158,11 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
 
     // Start drawing from the rootNode
     if (rootNode) {
-      drawBranchRecursive(ctx, rootNode, viewport, selectedNodeId, editingNodeId, currentSearchTerm, highlightedNodeIds);
+      drawBranchRecursive(ctx, rootNode, viewport, selectedNodeId, editingNodeId, currentSearchTerm, highlightedNodeIds, exactMatchNodeIds);
     }
 
     ctx.restore();
-  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, isReadOnly, drawBranchRecursive]);
+  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, exactMatchNodeIds, isReadOnly, drawBranchRecursive]);
 
   const getMousePositionOnCanvas = (e: React.MouseEvent): Point => {
     const canvas = canvasRef.current;

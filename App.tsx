@@ -92,6 +92,23 @@ function App() {
     }
   }, [state.editingNodeId, state.selectedNodeId, state.rootNode, state.viewport, canvasSize, mindMapHook.pan]);
 
+  // 监听搜索状态变化，当有匹配的节点时自动居中
+  useEffect(() => {
+    // 当有搜索匹配且选中节点发生变化时，自动居中到选中的节点
+    if (state.highlightedNodeIds.size > 0 && state.selectedNodeId && canvasSize) {
+      const targetNode = findNodeInAST(state.rootNode, state.selectedNodeId);
+      if (targetNode) {
+        const targetWorldX = targetNode.position.x + targetNode.width / 2;
+        const targetWorldY = targetNode.position.y + targetNode.height / 2;
+
+        // 使用当前缩放比例将视图居中到目标节点
+        const newViewportX = (canvasSize.width / 2) - (targetWorldX * state.viewport.zoom);
+        const newViewportY = (canvasSize.height / 2) - (targetWorldY * state.viewport.zoom);
+        setViewport({ x: newViewportX, y: newViewportY });
+      }
+    }
+  }, [state.highlightedNodeIds.size, state.selectedNodeId, state.rootNode, canvasSize, state.viewport.zoom, setViewport]);
+
   // 顶部工具栏命令配置
   const topToolbarCommands = useMemo<CommandDescriptor[]>(() => {
     const canAddChild = !!state.selectedNodeId;
