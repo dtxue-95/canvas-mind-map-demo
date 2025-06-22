@@ -1,0 +1,5 @@
+{
+  "name": "Canvas Mind Map",
+  "description": "A mind mapping application implemented using HTML Canvas, React, and Tailwind CSS. Users can create, edit, connect, and arrange nodes to visualize ideas.",
+  "requestFramePermissions": []
+}
