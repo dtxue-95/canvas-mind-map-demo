@@ -59,6 +59,7 @@ export function deepCopyAST(node: MindMapNodeAST | null): MindMapNodeAST | null 
   };
   // 过滤掉空值（如果任何子节点的 deepCopyAST 返回 null，虽然如果子节点有效则不应该发生）
   copiedNode.children = copiedNode.children.filter(child => child !== null);
+  
   return copiedNode;
 }
 

@@ -102,6 +102,8 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
         ...initialState, // 重置其他状态，如选择、编辑、搜索
         rootNode: laidOutData,
         selectedNodeId: laidOutData ? laidOutData.id : null,
+        currentSearchTerm: "", // 明确重置搜索词
+        highlightedNodeIds: new Set<string>(), // 明确重置高亮节点集合
         viewport: { // 加载新数据时重置视口
           x: (0 + CHILD_H_SPACING / 2),
           y: 0,
@@ -110,21 +112,27 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
       };
     }
     case 'SET_SEARCH_TERM': {
-      const searchTerm = action.payload.toLowerCase();
+      const originalTerm = action.payload;
+      const searchTerm = originalTerm.toLowerCase().trim();
       const newHighlightedNodeIds = new Set<string>();
 
-      function traverseAndHighlight(node: MindMapNodeAST | null) {
-        if (!node) return;
-        if (searchTerm && node.text.toLowerCase().includes(searchTerm)) {
-          newHighlightedNodeIds.add(node.id);
+      // 只有当搜索词不为空时才进行匹配
+      if (searchTerm && searchTerm.length > 0) {
+        function traverseAndHighlight(node: MindMapNodeAST | null) {
+          if (!node) return;
+          if (node.text.toLowerCase().includes(searchTerm)) {
+            newHighlightedNodeIds.add(node.id);
+          }
+          if (!node.isCollapsed) { // 仅搜索可见的子节点
+            node.children.forEach(traverseAndHighlight);
+          }
         }
-        if (!node.isCollapsed) { // 仅搜索可见的子节点
-          node.children.forEach(traverseAndHighlight);
-        }
+        traverseAndHighlight(state.rootNode);
       }
-      traverseAndHighlight(state.rootNode);
+      // 如果搜索词为空或只包含空白字符，newHighlightedNodeIds 保持为空集合，清除所有高亮
 
-      return { ...state, currentSearchTerm: action.payload, highlightedNodeIds: newHighlightedNodeIds };
+      // 使用原始输入值更新状态，保持输入框的值与状态一致
+      return { ...state, currentSearchTerm: originalTerm, highlightedNodeIds: newHighlightedNodeIds };
     }
     case 'APPLY_LAYOUT_FROM_ROOT': {
       if (!state.rootNode) return state;

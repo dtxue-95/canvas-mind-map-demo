@@ -67,11 +67,15 @@ export const DeleteNodeCommand = {
       newSelectedNodeId = parentOfDeleted.id;
     } else if (workingRootNode && workingRootNode.id === nodeIdToDelete) {
       // 删除根节点
-      // 如果根节点有子节点，当前行为意味着它们会丢失。
-      // 更健壮的行为可能是提升第一个子节点，或清空地图。
-      // 目前，将根节点设置为null。
-      newRootAfterDelete = null; 
-      newSelectedNodeId = null;
+      // 如果根节点有子节点，提升第一个子节点作为新的根节点
+      if (workingRootNode.children && workingRootNode.children.length > 0) {
+        newRootAfterDelete = workingRootNode.children[0];
+        newSelectedNodeId = newRootAfterDelete.id;
+      } else {
+        // 如果根节点没有子节点，保留根节点（不允许删除最后一个节点）
+        newRootAfterDelete = workingRootNode;
+        newSelectedNodeId = workingRootNode.id;
+      }
     } else {
       // 以不允许删除的方式未找到节点（例如，不是根节点，但没有父节点）- 在有效的AST中不应该发生
       // 本质上恢复到原始状态

@@ -160,7 +160,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
     }
 
     ctx.restore();
-  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, drawBranchRecursive]);
+  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, isReadOnly, drawBranchRecursive]);
 
   const getMousePositionOnCanvas = (e: React.MouseEvent): Point => {
     const canvas = canvasRef.current;
@@ -307,12 +307,6 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
     }
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const mousePos = getMousePositionOnCanvas(e);
-    zoom(e.deltaY, mousePos);
-  };
-
   const handleNodeEditSave = (text: string) => {
     if (editingNodeId && !isReadOnly) {
       updateNodeText(editingNodeId, text);
@@ -326,6 +320,16 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 检查焦点是否在输入框上，如果是则不处理全局键盘事件
+      const activeElement = document.activeElement;
+      if (activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' || 
+        (activeElement as HTMLElement).contentEditable === 'true'
+      )) {
+        return; // 焦点在输入框上，不处理全局键盘事件
+      }
+
       if (editingNodeId) return; // Ignore keyboard shortcuts while editing text
 
       if (isReadOnly) {
@@ -390,6 +394,29 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedNodeId, editingNodeId, mindMapDeleteNode, setEditingNode, mindMapAddNode, zoom, currentCanvasSize, rootNode, isReadOnly, updateNodeText, pan, toggleNodeCollapse, findNodeAndParentInAST]); // Added findNodeAndParentInAST due to usage in keydown
   
+  // 手动处理wheel事件以避免passive listener警告
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mousePos = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+      zoom(e.deltaY, mousePos);
+    };
+
+    // 使用passive: false选项来允许preventDefault
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [zoom]);
+  
   const nodeToEdit = editingNodeId ? findNodeInAST(rootNode, editingNodeId) : null;
 
   return (
@@ -401,7 +428,6 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp} // Important to reset state if mouse leaves canvas while dragging
-        onWheel={handleWheel}
         onDoubleClick={handleDoubleClick}
         aria-label="Mind map canvas"
       />

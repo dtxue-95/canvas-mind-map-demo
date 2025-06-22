@@ -227,9 +227,9 @@ export function drawNode(
       }
       
       // 高亮搜索匹配的文本
-      if (isHighlighted && currentSearchTerm && currentSearchTerm.length > 0) {
+      if (isHighlighted && currentSearchTerm && currentSearchTerm.trim().length > 0) {
         ctx.textAlign = 'left';
-        const searchTermLower = currentSearchTerm.toLowerCase();
+        const searchTermLower = currentSearchTerm.toLowerCase().trim();
         const lineTextLower = lineText.toLowerCase();
         
         const totalLineWidth = ctx.measureText(lineText).width;
@@ -245,11 +245,11 @@ export function drawNode(
                     ctx.fillText(preText, currentRenderX, lineY);
                     currentRenderX += ctx.measureText(preText).width;
                 }
-                const matchedText = lineText.substring(matchIndex, matchIndex + currentSearchTerm.length);
+                const matchedText = lineText.substring(matchIndex, matchIndex + searchTermLower.length);
                 ctx.fillStyle = NODE_SEARCH_TEXT_MATCH_COLOR;
                 ctx.fillText(matchedText, currentRenderX, lineY);
                 currentRenderX += ctx.measureText(matchedText).width;
-                lastIndex = matchIndex + currentSearchTerm.length;
+                lastIndex = matchIndex + searchTermLower.length;
             } else {
                 const remainingText = lineText.substring(lastIndex);
                 ctx.fillStyle = node.textColor;

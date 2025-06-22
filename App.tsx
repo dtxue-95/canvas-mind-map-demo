@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import '@alifd/next/dist/next.css';
+import '@alifd/next/dist/next.min.css';
 import Toolbar from './components/Toolbar';
 import MindMapCanvas from './components/MindMapCanvas'; // 修正为 .tsx
 import BottomViewportToolbar from './components/BottomViewportToolbar';
@@ -282,7 +282,14 @@ function App() {
 
   // 切换搜索组件显示
   const handleToggleSearchWidget = () => {
-    setIsSearchVisible(prev => !prev);
+    setIsSearchVisible(prev => {
+      const newVisible = !prev;
+      // 如果关闭搜索框，清空搜索内容
+      if (!newVisible) {
+        setSearchTerm("");
+      }
+      return newVisible;
+    });
   };
 
   // 搜索词变化处理
