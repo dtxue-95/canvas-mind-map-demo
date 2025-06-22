@@ -1,6 +1,6 @@
 import React from 'react';
+import { Input, Button, Icon } from '@alifd/next';
 import type { SearchWidgetProps } from '../types';
-import { CloseIcon } from './icons';
 
 // 搜索组件
 const SearchWidget: React.FC<SearchWidgetProps> = ({
@@ -15,22 +15,22 @@ const SearchWidget: React.FC<SearchWidgetProps> = ({
 
   return (
     <div className="fixed top-20 right-4 sm:right-6 md:right-8 bg-white p-3 sm:p-4 rounded-lg shadow-xl z-30 flex items-center space-x-2">
-      <input
-        type="text"
+      <Input
         placeholder="搜索节点..."
         value={searchTerm}
-        onChange={(e) => onSearchTermChange(e.target.value)}
-        className="px-3 py-1.5 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm w-48 sm:w-64"
+        onChange={(value) => onSearchTermChange(String(value))}
         aria-label="搜索思维导图节点"
+        style={{ width: '220px' }}
       />
-      <button
+      <Button
         onClick={onClose}
-        className="p-1.5 text-slate-500 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors"
         title="关闭搜索"
         aria-label="关闭搜索组件"
+        type="normal"
+        text
       >
-        <CloseIcon />
-      </button>
+        <Icon type="close" />
+      </Button>
     </div>
   );
 };

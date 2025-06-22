@@ -116,6 +116,25 @@
 - ✅ **原因**: `useMindMap` hook在初始化时没有对默认数据应用布局。
 - ✅ **修复**: 修改`hooks/useMindMap.ts`，在`useEffect`中通过`LOAD_DATA` action加载初始数据，确保布局在渲染前正确应用。
 
+### 6. 只读模式无法展开/收起节点
+- ✅ **问题**: 在只读模式下，用户无法点击按钮来展开或收起节点。
+- ✅ **原因**: `MindMapCanvas.tsx`中的`handleMouseDown`事件处理器错误地检查了`isReadOnly`状态，阻止了`toggleNodeCollapse`动作的派发。
+- ✅ **修复**: 移除了`handleMouseDown`函数中对`isReadOnly`的不必要检查，允许在任何模式下都能进行节点的展开和收起操作。
+
+### 7. UI组件库迁移至`@alifd/next`
+- ✅ **背景**: 为了统一UI风格并提升组件的专业性，决定引入Fusion Design (`@alifd/next`)。
+- ✅ **实施**:
+    - **依赖安装**: 添加`@alifd/next`到项目依赖。
+    - **样式引入**: 在`App.tsx`中全局引入`@alifd/next/dist/next.css`。
+    - **组件替换**:
+        - `components/Toolbar.tsx`: 使用`Button`替换原生按钮。
+        - `components/BottomViewportToolbar.tsx`: 使用`Button`和`Icon`替换自定义按钮和SVG图标。
+        - `components/SearchWidget.tsx`: 使用`Input`、`Button`和`Icon`重构。
+        - `components/NodeEditInput.tsx`: 使用`Input`和`Button`重构，并修复了`ref`类型兼容性问题。
+    - **图标清理**: 删除了不再需要的本地SVG图标文件`components/icons.tsx`。
+    - **依赖问题修复**: 解决了`@alifd/next`依赖`lodash`但项目缺少该依赖的问题，安装了`lodash`和`@types/lodash`。
+- ✅ **结果**: 应用的所有核心UI组件现在都由`@alifd/next`驱动，实现了统一、现代化的外观。
+
 ## 技术特性
 
 ### 核心功能

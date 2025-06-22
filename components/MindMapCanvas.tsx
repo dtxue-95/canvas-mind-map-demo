@@ -195,9 +195,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
             const buttonCenterY = node.position.y + node.height / 2;
             const distSq = (worldPos.x - buttonCenterX) ** 2 + (worldPos.y - buttonCenterY) ** 2;
             if (distSq <= COLLAPSE_BUTTON_RADIUS ** 2) {
-              if (!isReadOnly) { // Collapse/expand only if not read-only
-                toggleNodeCollapse(node.id);
-              }
+              toggleNodeCollapse(node.id);
               return true; // Button click processed
             }
         }

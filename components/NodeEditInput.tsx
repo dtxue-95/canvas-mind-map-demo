@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Input, Button, Icon } from '@alifd/next';
 import { MindMapNodeAST, Viewport } from '../types'; // Changed Node to MindMapNodeAST
 import { worldToScreen } from '../utils/canvasUtils';
 import { FONT_SIZE, FONT_FAMILY, TEXT_PADDING_X, TEXT_PADDING_Y, NODE_BORDER_RADIUS } from '../constants';
@@ -8,72 +9,70 @@ import { NodeEditInputProps } from '../types';
 
 const NodeEditInput: React.FC<NodeEditInputProps> = ({ node, viewport, onSave, onCancel, canvasBounds }) => {
   const [text, setText] = useState(node.text);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<any>(null); // 使用 any 类型以兼容 @alifd/next 的 ref
 
-  useEffect(() => {
-    setText(node.text);
-    if (inputRef.current) { // Ensure ref is current before focusing
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [node]); // Rerun if node object changes
+  // 根据节点在Canvas中的位置计算输入框的绝对定位
+  const style: React.CSSProperties = (() => {
+    if (!canvasBounds) return { display: 'none' };
 
-  if (!canvasBounds) return null;
+    const nodeScreenPos = worldToScreen(node.position, viewport);
+    const nodeScreenWidth = node.width * viewport.zoom;
+    const nodeScreenHeight = node.height * viewport.zoom;
 
-  const screenPos = worldToScreen(node.position, viewport);
-  // Use node's actual width/height from layout for the input field size
-  const screenWidth = node.width * viewport.zoom;
-  const screenHeight = node.height * viewport.zoom;
+    return {
+      position: 'absolute',
+      left: `${canvasBounds.left + nodeScreenPos.x}px`,
+      top: `${canvasBounds.top + nodeScreenPos.y}px`,
+      width: `${nodeScreenWidth}px`,
+      height: `${nodeScreenHeight}px`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'column',
+      gap: '8px', // 间距
+    };
+  })();
 
-  const style: React.CSSProperties = {
-    position: 'absolute',
-    left: `${screenPos.x}px`,
-    top: `${screenPos.y}px`,
-    width: `${screenWidth}px`,
-    height: `${screenHeight}px`,
-    fontFamily: FONT_FAMILY,
-    fontSize: `${FONT_SIZE * viewport.zoom}px`,
-    lineHeight: `${FONT_SIZE * 1.2 * viewport.zoom}px`, // Consistent with canvas text rendering
-    color: node.textColor,
-    backgroundColor: node.color,
-    textAlign: 'center',
-    border: 'none', // Or a subtle border for editing
-    outline: 'none', // Or focus ring
-    boxSizing: 'border-box',
-    padding: `${TEXT_PADDING_Y * viewport.zoom}px ${TEXT_PADDING_X * viewport.zoom}px`,
-    borderRadius: `${NODE_BORDER_RADIUS * viewport.zoom}px`,
-    resize: 'none',
-    overflow: 'hidden', // To match node appearance, text should wrap.
-    zIndex: 100,
-    // Ensure textarea text is vertically centered like canvas text
-    display: 'flex',
-    alignItems: 'center', 
-    justifyContent: 'center',
+  const handleSave = () => {
+    onSave(text.trim() || '新想法'); // 保存时不为空
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
       e.preventDefault();
-      onSave(text.trim() === "" ? "New Idea" : text); // Ensure non-empty text
+      handleSave();
     } else if (e.key === 'Escape') {
       onCancel();
     }
   };
 
-  const handleBlur = () => {
-    onSave(text.trim() === "" ? "New Idea" : text); // Ensure non-empty text
-  };
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+      // @alifd/next 的 Input 没有 select() 方法，但 focus() 通常足够
+    }
+  }, []);
 
   return (
-    <textarea
-      ref={inputRef}
-      value={text}
-      onChange={(e) => setText(e.target.value)}
-      onKeyDown={handleKeyDown}
-      onBlur={handleBlur}
-      style={style}
-      aria-label="Edit node text"
-    />
+    <div style={style}>
+      <Input
+        ref={inputRef}
+        value={text}
+        onChange={(value) => setText(String(value))}
+        onKeyDown={handleKeyDown}
+        onBlur={handleSave} // 失去焦点时自动保存
+        style={{ width: '90%' }}
+        aria-label="编辑节点文本"
+      />
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <Button type="primary" onClick={handleSave} size="small">
+          <Icon type="success" /> 保存
+        </Button>
+        <Button onClick={onCancel} size="small">
+          <Icon type="close" /> 取消
+        </Button>
+      </div>
+    </div>
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import '@alifd/next/dist/next.css';
 import Toolbar from './components/Toolbar';
 import MindMapCanvas from './components/MindMapCanvas'; // 修正为 .tsx
 import BottomViewportToolbar from './components/BottomViewportToolbar';
