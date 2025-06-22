@@ -115,3 +115,41 @@ export function findNodeAndParentInAST(
   }
   return null;
 }
+
+/**
+ * 将任意数据结构的节点转换为项目所需的 MindMapNodeAST 格式。
+ * - 递归处理 `children`。
+ * - 映射 `id` 和 `text` 字段（`name` 或 `label` 字段可作为 `text` 的备用）。
+ * - 为缺失的 `position`, `width`, `height`, `color` 等字段补充默认值。
+ * - 忽略源数据中的多余字段。
+ *
+ * @param sourceNode 任何来源的、包含 id, text/name/label, 和 children 的节点对象。
+ * @returns 格式化后的 MindMapNodeAST 节点，或在源数据无效时返回 null。
+ */
+export function transformToMindMapNode(sourceNode: any): MindMapNodeAST | null {
+  if (!sourceNode || !sourceNode.id || (!sourceNode.text && !sourceNode.name && !sourceNode.label)) {
+    // 基础验证：节点必须存在，且有id和文本内容
+    return null;
+  }
+
+  const transformedNode: MindMapNodeAST = {
+    id: sourceNode.id,
+    text: sourceNode.text || sourceNode.name || sourceNode.label,
+    position: { x: 0, y: 0 },
+    width: 0,
+    height: 0,
+    color: sourceNode.color || NODE_DEFAULT_COLOR,
+    textColor: sourceNode.textColor || NODE_TEXT_COLOR,
+    isCollapsed: sourceNode.isCollapsed === true, // 明确检查布尔值 true
+    children: [], // 先初始化为空数组
+    childrenCount: 0,
+  };
+
+  if (sourceNode.children && Array.isArray(sourceNode.children)) {
+    transformedNode.children = sourceNode.children
+      .map((child: any) => transformToMindMapNode(child)) // 递归转换子节点
+      .filter((child): child is MindMapNodeAST => child !== null); // 过滤掉转换失败的子节点
+  }
+
+  return transformedNode;
+}

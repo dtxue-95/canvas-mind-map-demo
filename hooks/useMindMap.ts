@@ -2,11 +2,11 @@ import React, { useReducer, useCallback, useEffect } from 'react';
 import { MindMapNodeAST, Point, Viewport, MindMapState, MindMapAction, AddNodeCommandArgs, DeleteNodeCommandArgs } from '../types';
 import { INITIAL_ZOOM, MIN_ZOOM, MAX_ZOOM, ZOOM_SENSITIVITY, CHILD_H_SPACING } from '../constants';
 import { calculateNodeDimensions } from '../utils/canvasUtils';
-import { createNode, countAllDescendants, deepCopyAST, findNodeInAST, findNodeAndParentInAST } from '../utils/nodeUtils';
+import { createNode, countAllDescendants, deepCopyAST, findNodeInAST, findNodeAndParentInAST, transformToMindMapNode } from '../utils/nodeUtils';
 import { applyLayout } from '../layoutEngine';
 import { AddNodeCommand } from '../commands/addNodeCommand';
 import { DeleteNodeCommand } from '../commands/deleteNodeCommand';
-import { defaultInitialRootNodes } from '../initialData'; // 示例，如果我们想在这里加载它
+import { rawInitialData } from '../initialData';
 
 // 初始状态
 const initialState: MindMapState = {
@@ -245,8 +245,10 @@ export function useMindMap(canvasSize?: { width: number; height: number } | null
 
   useEffect(() => {
     // 挂载时加载初始数据
-    // LOAD_DATA action 会应用布局并选择根节点
-    dispatch({ type: 'LOAD_DATA', payload: { rootNode: defaultInitialRootNodes[0] } });
+    // 1. 使用转换器处理原始数据
+    const formattedData = transformToMindMapNode(rawInitialData);
+    // 2. 将格式化后的数据加载到状态中
+    dispatch({ type: 'LOAD_DATA', payload: { rootNode: formattedData } });
   }, []); // 挂载时运行一次
 
   // 添加节点
