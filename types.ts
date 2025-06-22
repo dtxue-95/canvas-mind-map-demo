@@ -1,3 +1,5 @@
+import { IconType } from 'react-icons';
+
 // 基础几何类型
 export interface Point {
   x: number;
@@ -32,6 +34,7 @@ export interface CommandDescriptor {
   action: () => void;            // 命令执行函数
   disabled?: boolean;            // 是否禁用
   title?: string;                // 工具提示文本
+  icon: IconType | string;       // 图标，可以是字符串或react-icons类型
 }
 
 // 添加节点命令参数

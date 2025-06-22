@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import '@alifd/next/dist/next.min.css';
 import Toolbar from './components/Toolbar';
 import MindMapCanvas from './components/MindMapCanvas'; // 修正为 .tsx
 import BottomViewportToolbar from './components/BottomViewportToolbar';
@@ -10,6 +9,10 @@ import { CommandDescriptor, MindMapNodeAST, Point } from './types'; // 添加 Mi
 import { NEW_NODE_TEXT, INITIAL_ZOOM } from './constants';
 import { findNodeInAST, findNodeAndParentInAST } from './utils/nodeUtils'; // 添加 AST 查找器
 import { worldToScreen } from './utils/canvasUtils'; // 用于自动平移
+import { 
+  FaPlus, FaMinus, FaTrash, FaSitemap, FaSearch, FaExpandArrowsAlt, 
+  FaCompressArrowsAlt, FaLock, FaUnlock, FaCrosshairs, FaVectorSquare
+} from 'react-icons/fa';
 
 function App() {
   const [canvasSize, setCanvasSize] = useState<{width: number, height: number} | null>(null);
@@ -194,29 +197,32 @@ function App() {
         label: '添加节点',
         action: () => handleAddNodeCommand(false),
         disabled: state.isReadOnly,
-        title: state.isReadOnly ? '只读模式' : '添加新的兄弟节点（如果没有选中/选中根节点则添加根节点）（Insert 或 Shift+Tab）',
+        title: state.isReadOnly ? '只读模式' : '添加兄弟节点 (Insert)',
+        icon: FaPlus,
       },
       {
         id: 'add-child',
         label: '添加子节点',
         action: () => handleAddNodeCommand(true),
         disabled: !canAddChild || state.isReadOnly,
-        title: state.isReadOnly ? '只读模式' : (canAddChild ? "为选中节点添加子节点（Tab）" : "选择一个节点来添加子节点"),
+        title: state.isReadOnly ? '只读模式' : (canAddChild ? "添加子节点 (Tab)" : "请先选择一个节点"),
+        icon: FaSitemap,
       },
       {
         id: 'delete-node',
         label: '删除节点',
         action: handleDeleteNodeCommand,
         disabled: !canDeleteCurrentNode || state.isReadOnly,
-        title: state.isReadOnly ? '只读模式' : (canDeleteCurrentNode ? "删除选中节点及其子节点（Delete/Backspace）" : "选择一个节点来删除，或无法删除最后一个节点"),
+        title: state.isReadOnly ? '只读模式' : (canDeleteCurrentNode ? "删除节点 (Delete)" : "无法删除最后一个节点"),
+        icon: FaTrash,
       },
     ];
   }, [state.selectedNodeId, state.rootNode, state.isReadOnly, addNode, deleteNode]);
-  
+
   // 放大处理函数
   const handleZoomInApp = () => {
     if (canvasSize) {
-      zoom(-150, { x: canvasSize.width / 2, y: canvasSize.height / 2 });
+      zoom(-100, { x: canvasSize.width / 2, y: canvasSize.height / 2 });
     }
   };
 
@@ -373,26 +379,156 @@ function App() {
     setSearchTerm("");
   };
 
+  // 底部工具栏命令配置
+  const bottomToolbarCommands = useMemo<CommandDescriptor[]>(() => {
+    return [
+      {
+        id: 'search',
+        label: '搜索',
+        action: handleToggleSearchWidget,
+        disabled: false,
+        title: '搜索节点 (Cmd+F)',
+        icon: FaSearch,
+      },
+      {
+        id: 'zoom-out',
+        label: '缩小',
+        action: handleZoomOutApp,
+        disabled: false,
+        title: '缩小视图 (-)',
+        icon: FaMinus,
+      },
+      {
+        id: 'zoom-in',
+        label: '放大',
+        action: handleZoomInApp,
+        disabled: false,
+        title: '放大视图 (+)',
+        icon: FaPlus,
+      },
+      {
+        id: 'center',
+        label: '居中',
+        action: handleCenterContent,
+        disabled: false,
+        title: '居中视图',
+        icon: FaCrosshairs,
+      },
+      {
+        id: 'fit-view',
+        label: '适应',
+        action: handleFitView,
+        disabled: false,
+        title: '适应视图',
+        icon: FaVectorSquare,
+      },
+      {
+        id: 'read-only',
+        label: state.isReadOnly ? '只读' : '编辑',
+        action: mindMapHook.toggleReadOnlyMode,
+        disabled: false,
+        title: state.isReadOnly ? '切换到编辑模式' : '切换到只读模式',
+        icon: state.isReadOnly ? FaLock : FaUnlock,
+      },
+      {
+        id: 'fullscreen',
+        label: isFullscreen ? '退出' : '全屏',
+        action: handleToggleFullscreen,
+        disabled: false,
+        title: isFullscreen ? '退出全屏' : '进入全屏',
+        icon: isFullscreen ? FaCompressArrowsAlt : FaExpandArrowsAlt,
+      },
+    ];
+  }, [
+    state.isReadOnly, 
+    isFullscreen, 
+    handleToggleSearchWidget, 
+    handleZoomOutApp, 
+    handleZoomInApp, 
+    handleCenterContent, 
+    handleFitView, 
+    handleToggleFullscreen, 
+    mindMapHook.toggleReadOnlyMode
+  ]);
+
+  // 新增: 专门处理全局快捷键，如搜索
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 处理所有可能的搜索快捷键组合 - 无论焦点在哪里都要阻止浏览器搜索
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault(); // 阻止浏览器默认的查找功能
+        e.stopPropagation(); // 阻止事件冒泡
+        
+        // 检查焦点是否在输入框上
+        const activeElement = document.activeElement;
+        if (activeElement && (
+          activeElement.tagName === 'INPUT' || 
+          activeElement.tagName === 'TEXTAREA' || 
+          (activeElement as HTMLElement).contentEditable === 'true'
+        )) {
+          // 如果在输入框内，不触发应用内搜索，只阻止浏览器搜索
+          return false;
+        }
+        
+        // 如果不在输入框内，触发应用内搜索
+        handleToggleSearchWidget();
+        return false; // 确保事件被完全阻止
+      }
+      
+      // 处理其他可能的搜索快捷键（如 Cmd+G 在 Safari 中）
+      if ((e.metaKey || e.ctrlKey) && e.key === 'g') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      
+      // 处理 F3 键（某些浏览器的查找下一个）
+      if (e.key === 'F3') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    // 禁用右键菜单中的搜索选项
+    const handleContextMenu = (e: MouseEvent) => {
+      // 检查是否在搜索相关的元素上右键
+      const target = e.target as HTMLElement;
+      if (target && (
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' ||
+        target.closest('.search-widget') // 如果搜索组件有特定类名
+      )) {
+        return; // 允许在输入框上显示默认右键菜单
+      }
+      
+      // 在其他地方右键时，阻止默认菜单（包含搜索选项）
+      e.preventDefault();
+    };
+
+    // 使用 capture 阶段来确保我们的监听器最先执行
+    window.addEventListener('keydown', handleGlobalKeyDown, true);
+    window.addEventListener('contextmenu', handleContextMenu);
+    
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown, true);
+      window.removeEventListener('contextmenu', handleContextMenu);
+    };
+    // 依赖项包含了切换搜索框的函数，确保总是使用最新的函数引用
+  }, [handleToggleSearchWidget]);
+
   const zoomPercentage = Math.round(state.viewport.zoom * 100);
   const nodeToEditForInput = state.editingNodeId ? findNodeInAST(state.rootNode, state.editingNodeId) : null;
 
   return (
     <div ref={appContainerRef} className="w-screen h-screen flex flex-col bg-gray-200 overflow-hidden">
-      <Toolbar commands={topToolbarCommands} borderStyle="bottom" />
+      <Toolbar commands={topToolbarCommands} />
       <div ref={canvasContainerRef} className="flex-grow w-full h-full relative overflow-hidden">
         {canvasSize && <MindMapCanvas mindMapHookInstance={mindMapHook} />}
       </div>
       <BottomViewportToolbar
+        commands={bottomToolbarCommands}
         zoomPercentage={zoomPercentage}
-        isFullscreen={isFullscreen}
-        isReadOnly={state.isReadOnly}
-        onZoomIn={handleZoomInApp}
-        onZoomOut={handleZoomOutApp}
-        onCenterView={handleCenterContent}
-        onFitView={handleFitView}
-        onToggleFullscreen={handleToggleFullscreen}
-        onToggleSearchWidget={handleToggleSearchWidget}
-        onToggleReadOnly={mindMapHook.toggleReadOnlyMode} // 直接从 hook 传递
       />
       <SearchWidget
         isVisible={isSearchVisible}
