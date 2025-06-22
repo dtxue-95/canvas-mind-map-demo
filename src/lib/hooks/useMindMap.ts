@@ -13,7 +13,7 @@ const initialState: MindMapState = {
   selectedNodeId: null,
   editingNodeId: null,
   viewport: { x: 0, y: 0, zoom: INITIAL_ZOOM },
-  isReadOnly: false,
+  isReadOnly: true,
   currentSearchTerm: '',
   searchMatches: [],
   highlightedNodeIds: new Set<string>(),
@@ -36,7 +36,7 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
                 traverseAndCount(copiedRoot);
             }
             const laidOutData = copiedRoot ? applyLayout(copiedRoot) : null;
-            return { ...initialState, rootNode: laidOutData, selectedNodeId: laidOutData ? laidOutData.id : null, viewport: { x: (0 + CHILD_H_SPACING / 2), y: 0, zoom: INITIAL_ZOOM } };
+            return { ...state, rootNode: laidOutData, selectedNodeId: laidOutData ? laidOutData.id : null, viewport: { x: (0 + CHILD_H_SPACING / 2), y: 0, zoom: INITIAL_ZOOM } };
         }
         case 'APPLY_ADD_NODE_RESULT': return { ...state, rootNode: action.payload.rootNode };
         case 'APPLY_DELETE_NODE_RESULT': {
@@ -48,6 +48,9 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
         case 'SET_VIEWPORT': return { ...state, viewport: { ...state.viewport, ...action.payload } };
         case 'SET_READ_ONLY': {
             const newIsReadOnly = action.payload.isReadOnly;
+            if (state.isReadOnly === newIsReadOnly) {
+                return state;
+            }
             return { ...state, isReadOnly: newIsReadOnly, editingNodeId: newIsReadOnly ? null : state.editingNodeId };
         }
         case 'TOGGLE_NODE_COLLAPSE': {
@@ -99,19 +102,14 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
 export function useMindMap(
     canvasSize?: { width: number; height: number } | null, 
     initialDataProp?: any,
-    readOnly?: boolean
 ) {
-  const [state, dispatch] = useReducer(mindMapReducer, { ...initialState, isReadOnly: readOnly || false });
+  const [state, dispatch] = useReducer(mindMapReducer, initialState);
 
   useEffect(() => {
     const dataToLoad = initialDataProp || defaultRawData;
     const formattedData = transformToMindMapNode(dataToLoad);
     dispatch({ type: 'LOAD_DATA', payload: { rootNode: formattedData } });
   }, [initialDataProp]);
-
-  useEffect(() => {
-    dispatch({ type: 'SET_READ_ONLY', payload: { isReadOnly: readOnly || false } });
-  }, [readOnly]);
 
   const setViewport = useCallback((viewportUpdate: Partial<Viewport>) => dispatch({ type: 'SET_VIEWPORT', payload: viewportUpdate }), []);
   const addNode = useCallback((text: string, targetParentId?: string | null) => {

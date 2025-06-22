@@ -29,19 +29,28 @@ export default function ReactMindMap({
   bottomToolbarConfig,
   showTopToolbar = true,
   showBottomToolbar = true,
-  readOnly = false,
+  readOnly = true,
   onDataChange,
 }: ReactMindMapProps) {
   const appContainerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
-  const mindMapHook = useMindMap(canvasSize, initialData, readOnly);
+  const mindMapHook = useMindMap(canvasSize, initialData);
   const { state, pan, toggleReadOnlyMode, goToNextMatch, goToPreviousMatch, setSearchTerm } = mindMapHook;
 
   const [topHandlePosition, setTopHandlePosition] = useState({ x: 0, y: 0 });
   const [bottomHandlePosition, setBottomHandlePosition] = useState({ x: 0, y: 0 });
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // On initial mount, if the `readOnly` prop is explicitly false, set the component to editable.
+  // This effect runs only once and will not conflict with user toggles afterward.
+  useEffect(() => {
+    if (readOnly === false) {
+      toggleReadOnlyMode(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const updateSize = () => {
@@ -60,11 +69,6 @@ export default function ReactMindMap({
     }
     return () => { if (target) resizeObserver.unobserve(target); };
   }, []);
-
-  useEffect(() => {
-    const forcedReadOnly = !showBottomToolbar;
-    toggleReadOnlyMode(readOnly || forcedReadOnly);
-  }, [showBottomToolbar, readOnly, toggleReadOnlyMode]);
 
   useEffect(() => {
     const nodeIdToFocus = state.editingNodeId || state.selectedNodeId;
@@ -132,7 +136,6 @@ export default function ReactMindMap({
   
   // 包装 setViewport，便于调试
   const safeSetViewport = (viewportUpdate: Partial<typeof state.viewport>) => {
-    console.log('setViewport called', viewportUpdate);
     mindMapHook.setViewport(viewportUpdate);
   };
 
@@ -187,10 +190,6 @@ export default function ReactMindMap({
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, []);
-
-  useEffect(() => {
-    toggleReadOnlyMode(readOnly);
-  }, [readOnly, toggleReadOnlyMode]);
 
   // 当搜索框关闭时，自动清空搜索词和结果
   useEffect(() => {

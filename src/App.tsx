@@ -72,7 +72,6 @@ function App() {
     onDataChange: setData, // 假设 onDataChange prop 存在
     showTopToolbar: true,
     showBottomToolbar: true,
-    readOnly: false,
   };
 
   return (
