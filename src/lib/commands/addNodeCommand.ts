@@ -1,4 +1,4 @@
-import { MindMapNodeAST, AddNodeCommandArgs, AddNodeCommandResult } from '../types';
+import { MindMapNode, AddNodeCommandArgs, AddNodeCommandResult } from '../types';
 import { createNode, findNodeInAST, deepCopyAST } from '../utils/nodeUtils';
 import { applyLayout } from '../layoutEngine';
 import { NEW_NODE_TEXT, CHILD_H_SPACING } from '../constants';
@@ -15,7 +15,7 @@ export const AddNodeCommand = {
    * @returns 添加节点结果
    */
   execute: (
-    currentRootNode: MindMapNodeAST | null,
+    currentRootNode: MindMapNode | null,
     args: AddNodeCommandArgs
   ): AddNodeCommandResult => {
     const { text: nodeText, targetParentId } = args;
@@ -29,7 +29,7 @@ export const AddNodeCommand = {
       nodeText || NEW_NODE_TEXT
     );
 
-    let newRootAfterAdd: MindMapNodeAST | null = null;
+    let newRootAfterAdd: MindMapNode | null = null;
 
     if (targetParentId && workingRootNode) {
       // 有父节点ID，尝试添加到指定父节点

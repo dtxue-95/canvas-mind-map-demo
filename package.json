@@ -1,26 +1,56 @@
 {
-  "name": "canvas-mind-map",
-  "private": true,
-  "version": "0.0.0",
+  "name": "react-canvas-mindmap",
+  "private": false,
+  "version": "1.0.0",
+  "description": "A customizable and performant mind map component for React built with Canvas.",
+  "author": "Your Name",
+  "license": "MIT",
   "type": "module",
+  "main": "./dist/react-canvas-mindmap.umd.js",
+  "module": "./dist/react-canvas-mindmap.es.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/react-canvas-mindmap.es.js",
+      "require": "./dist/react-canvas-mindmap.umd.js"
+    },
+    "./dist/style.css": "./dist/style.css"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --config vite.lib.config.ts",
+    "build:lib": "vite build --config vite.lib.config.ts",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@alifd/next": "^1.27.32",
-    "lodash": "^4.17.21",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-icons": "^5.5.0"
+    "@alifd/next": "^1.26.26",
+    "react-icons": "^5.2.1"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@types/lodash": "^4.17.18",
-    "@types/node": "^22.14.0",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "typescript": "~5.7.2",
-    "vite": "^6.2.0"
+    "@types/node": "^24.0.3",
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.2.22",
+    "@typescript-eslint/eslint-plugin": "^7.2.0",
+    "@typescript-eslint/parser": "^7.2.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.6",
+    "postcss": "^8.4.38",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0",
+    "vite-plugin-dts": "^3.9.1"
   }
 }

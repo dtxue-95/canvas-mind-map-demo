@@ -469,3 +469,107 @@
     - 浏览器的默认搜索功能被完全禁用，包括快捷键、右键菜单等所有入口。
     - 提供了完全无缝的应用体验，用户只能使用应用内提供的搜索功能。
     - 在搜索框和输入框内仍保持正常的右键菜单功能。
+
+## 【2024-重大重构】NPM包化与现代化演进全记录
+
+### 1. 目录结构重构
+- 将原有所有源码（components、hooks、utils、types等）统一迁移到 `src/lib/` 目录，作为NPM包的核心代码。
+- `src/App.tsx` 仅作为示例入口，演示如何在外部项目中集成和使用该思维导图组件。
+
+### 2. 入口组件与API设计
+- 新增 `src/lib/ReactMindMap.tsx`，封装所有核心逻辑，暴露 `initialData` 等props，成为NPM包的主入口。
+- 新建 `src/lib/index.ts`，统一导出主组件和类型。
+
+### 3. 构建与类型声明
+- 新增 `vite.lib.config.ts`，专用于库模式打包，支持ESM/UMD双格式输出。
+- 集成 `vite-plugin-dts`，自动生成类型声明文件，提升TypeScript开发体验。
+- `package.json` 增加 `main/module/types/files/exports` 字段，配置NPM包元数据。
+
+### 4. 样式系统修复
+- 新建 `tailwind.config.js`，配置 `content` 路径，确保所有组件样式被Tailwind扫描。
+- 新建 `postcss.config.js`，注册 `tailwindcss` 和 `autoprefixer` 插件，保证Vite能正确处理Tailwind指令。
+- 修正 `index.html` 和样式表引用路径，确保开发环境和打包环境下样式一致。
+
+### 5. 依赖与兼容性
+- 将 `react`、`react-dom` 移至 `peerDependencies`，避免多版本冲突。
+- 安装并配置 `@types/node`，解决Vite配置文件类型报错。
+
+### 6. 其他关键修复
+- 批量修正所有源码文件的导入路径，适配新目录结构。
+- 清理未使用的变量和类型，消除TypeScript构建警告。
+- 优化 `App.tsx`，只保留最简用法示例，便于外部集成测试。
+
+### 7. 典型问题与解决
+- 解决了因缺少Tailwind/PostCSS配置导致的样式全部丢失问题（详见本文件前述补充章节）。
+- 解决了Vite入口路径、样式表路径等因目录调整导致的404和渲染异常。
+
+---
+
+**本节将持续追加所有NPM包化后的重要变更，确保每一步优化都有据可查。**
+
+## 【功能升级】工具条完全配置化
+
+### 需求背景
+为了让思维导图组件库在不同项目中更灵活地使用，需要支持对顶部和底部工具条进行完全的自定义配置。用户应能决定显示哪些按钮、按钮的顺序、图标、文案乃至点击行为。
+
+### 实现方案
+1.  **定义标准配置类型**: 在 `types.ts` 中，新增了 `ToolbarButtonConfig` 接口，用于标准化描述每一个按钮的属性（`id`, `label`, `icon`, `action`, `disabled`, `visible` 等）。
+
+2.  **抽离默认配置**: 新建 `src/lib/defaultConfig.ts` 文件，将原先写死在组件内的工具条按钮逻辑抽离出来，导出为 `getDefaultTopToolbarConfig` 和 `getDefaultBottomToolbarConfig` 两个函数。这使得默认配置可被外部复用和修改。
+
+3.  **改造主组件**: `ReactMindMap.tsx` 新增 `topToolbarConfig` 和 `bottomToolbarConfig` 两个props。
+    - 组件优先使用用户传入的 `props` 来渲染工具条。
+    - 若 `props` 未提供，则调用 `defaultConfig.ts` 中的函数来加载默认工具条。
+    - 通过 `filter(btn => btn.visible !== false)` 支持了按钮的动态隐藏。
+
+4.  **导出模块**: 在库的入口文件 `src/lib/index.ts` 中，导出了 `defaultConfig` 和相关类型，方便最终用户在项目中导入和使用。
+
+### 使用方法
+
+用户现在可以通过向 `ReactMindMap` 组件传递 `topToolbarConfig` 或 `bottomToolbarConfig` 属性，来完全控制工具条的内容。
+
+**示例：只保留"添加"和"删除"按钮，并自定义一个按钮**
+```jsx
+import { 
+  ReactMindMap, 
+  getDefaultTopToolbarConfig 
+} from 'react-canvas-mindmap';
+import { FaSave } from 'react-icons/fa';
+
+function MyCustomMindMap() {
+  const handleSave = () => {
+    // 自定义保存逻辑...
+    alert('正在保存！');
+  };
+
+  // 获取默认配置，并进行修改
+  const customTopToolbar = [
+    // 只保留默认配置中的 'add-node'
+    ...getDefaultTopToolbarConfig(state, handlers).filter(btn => btn.id === 'add-node'),
+    // 添加一个全新的自定义按钮
+    {
+      id: 'custom-save',
+      label: '保存',
+      icon: FaSave,
+      action: handleSave,
+      title: '自定义保存按钮'
+    },
+    // 隐藏默认配置中的 'delete-node'
+    { 
+      ...getDefaultTopToolbarConfig(state, handlers).find(btn => btn.id === 'delete-node'), 
+      visible: false 
+    },
+  ];
+
+  return (
+    <ReactMindMap 
+      initialData={myData}
+      topToolbarConfig={customTopToolbar}
+      // bottomToolbarConfig 未传递，将使用默认的底部工具条
+    />
+  );
+}
+```
+
+### 效果
+通过本次重构，组件的灵活性和可扩展性得到了极大的提升，能更好地适应各种复杂的业务场景，是组件库走向成熟的关键一步。

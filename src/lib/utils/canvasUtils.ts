@@ -1,4 +1,4 @@
-import { MindMapNodeAST, Point, Viewport } from '../types'; // 从 Node 改为 MindMapNodeAST
+import { MindMapNode, Point, Viewport } from '../types';
 import { 
   FONT_FAMILY, FONT_SIZE, NODE_BORDER_RADIUS, 
   TEXT_PADDING_X, TEXT_PADDING_Y, CONNECTION_LINE_COLOR, CONNECTION_LINE_WIDTH,
@@ -154,7 +154,7 @@ export function calculateNodeDimensions(text: string): { width: number; height: 
 /**
  * 绘制节点
  * @param ctx Canvas上下文
- * @param node 要绘制的节点（从Node改为MindMapNodeAST）
+ * @param node 要绘制的节点
  * @param isSelected 是否选中
  * @param isEditing 是否正在编辑
  * @param isHighlighted 是否高亮
@@ -163,7 +163,7 @@ export function calculateNodeDimensions(text: string): { width: number; height: 
  */
 export function drawNode(
   ctx: CanvasRenderingContext2D,
-  node: MindMapNodeAST, // 从 Node 改为 MindMapNodeAST
+  node: MindMapNode,
   isSelected: boolean,
   isEditing?: boolean,
   isHighlighted?: boolean,
@@ -275,15 +275,15 @@ export function drawNode(
 }
 
 /**
- * 绘制折叠/展开按钮
+ * 绘制展开/折叠按钮
  * @param ctx Canvas上下文
- * @param node 节点（从Node改为MindMapNodeAST）
+ * @param node 要在其上绘制按钮的节点
  * @param isNodeCollapsed 节点是否折叠
- * @param nodeChildrenCount 子节点数量
+ * @param nodeChildrenCount 子节点数量（如果折叠）
  */
 export function drawCollapseButton(
   ctx: CanvasRenderingContext2D,
-  node: MindMapNodeAST, // 从 Node 改为 MindMapNodeAST
+  node: MindMapNode,
   isNodeCollapsed: boolean,
   nodeChildrenCount?: number
 ): void {
@@ -344,10 +344,10 @@ export function drawConnection(
 /**
  * 检查点是否在节点内
  * @param point 要检查的点
- * @param node 节点（从Node改为MindMapNodeAST）
- * @returns 是否在节点内
+ * @param node 节点
+ * @returns 如果点在节点内则为true，否则为false
  */
-export function isPointInNode(point: Point, node: MindMapNodeAST): boolean { // 从 Node 改为 MindMapNodeAST
+export function isPointInNode(point: Point, node: MindMapNode): boolean {
   return (
     point.x >= node.position.x &&
     point.x <= node.position.x + node.width &&

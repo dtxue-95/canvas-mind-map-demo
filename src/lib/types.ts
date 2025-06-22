@@ -1,4 +1,5 @@
 import { IconType } from 'react-icons';
+import React from 'react';
 
 // 基础几何类型
 export interface Point {
@@ -27,14 +28,17 @@ export interface Viewport {
   zoom: number;                  // 缩放比例
 }
 
-// 命令描述符
-export interface CommandDescriptor {
-  id: string;                    // 命令唯一标识符
-  label: string;                 // 命令显示标签
-  action: () => void;            // 命令执行函数
-  disabled?: boolean;            // 是否禁用
-  title?: string;                // 工具提示文本
-  icon: IconType | string;       // 图标，可以是字符串或react-icons类型
+/**
+ * Describes the configuration for a single button in a toolbar.
+ */
+export interface ToolbarButtonConfig {
+  id: string;
+  label: string;
+  title?: string;
+  icon?: React.ComponentType<any> | IconType;
+  action: () => void;
+  disabled?: boolean;
+  visible?: boolean; // Default is true if not specified
 }
 
 // 添加节点命令参数
@@ -73,9 +77,11 @@ export type MindMapAction =
   | { type: 'SET_VIEWPORT'; payload: Partial<Viewport> }                                          // 设置视口
   | { type: 'LOAD_DATA'; payload: { rootNode: MindMapNodeAST | null } }                           // 加载数据作为AST
   | { type: 'SET_SEARCH_TERM'; payload: string }                                                  // 设置搜索词
-  | { type: 'APPLY_LAYOUT_FROM_ROOT' }                                                            // 从根节点应用布局
-  | { type: 'TOGGLE_READ_ONLY' }                                                                  // 切换只读模式
-  | { type: 'TOGGLE_NODE_COLLAPSE'; payload: { nodeId: string } };                                // 切换节点折叠状态
+  | { type: 'APPLY_LAYOUT_FROM_ROOT'; payload: { rootNode: MindMapNodeAST } }                        // 从根节点应用布局
+  | { type: 'SET_READ_ONLY'; payload: { isReadOnly: boolean } }                                    // 设置只读模式
+  | { type: 'TOGGLE_NODE_COLLAPSE'; payload: { nodeId: string } }                                // 切换节点折叠状态
+  | { type: 'GO_TO_NEXT_MATCH' }                                                                // 导航到下一个搜索匹配项
+  | { type: 'GO_TO_PREVIOUS_MATCH' };                                                           // 导航到上一个搜索匹配项
 
 // 思维导图状态
 export interface MindMapState {
@@ -83,10 +89,13 @@ export interface MindMapState {
   selectedNodeId: string | null;          // 当前选中的节点ID
   editingNodeId: string | null;           // 当前编辑的节点ID
   viewport: Viewport;                     // 当前视口状态
-  currentSearchTerm: string;              // 当前搜索词
-  highlightedNodeIds: Set<string>;        // 高亮显示的节点ID集合
-  exactMatchNodeIds: Set<string>;         // 精确匹配的节点ID集合
   isReadOnly: boolean;                    // 是否为只读模式
+  // 搜索相关状态
+  currentSearchTerm: string;
+  searchMatches: string[];          // 有序的匹配节点ID数组
+  highlightedNodeIds: Set<string>;  // 所有匹配节点ID的集合，用于通用高亮
+  currentMatchIndex: number;        // 当前在 searchMatches 数组中的索引
+  currentMatchNodeId: string | null; // 当前导航到的节点ID，用于特殊高亮
 }
 
 // 节点编辑输入组件属性
@@ -104,6 +113,10 @@ export interface SearchWidgetProps {
   searchTerm: string;                    // 搜索词
   onSearchTermChange: (term: string) => void; // 搜索词变化回调
   onClose: () => void;                   // 关闭回调
+  totalMatches: number;
+  currentMatchIndex: number;
+  onNextMatch: () => void;
+  onPreviousMatch: () => void;
 }
 
 // 底部工具栏属性

@@ -1,4 +1,4 @@
-import { MindMapNodeAST, DeleteNodeCommandArgs, DeleteNodeCommandResult } from '../types';
+import { MindMapNode, DeleteNodeCommandArgs, DeleteNodeCommandResult } from '../types';
 import { findNodeAndParentInAST, deepCopyAST, findNodeInAST } from '../utils/nodeUtils';
 import { applyLayout } from '../layoutEngine';
 
@@ -14,7 +14,7 @@ export const DeleteNodeCommand = {
    * @returns 删除节点结果
    */
   execute: (
-    currentRootNode: MindMapNodeAST | null,
+    currentRootNode: MindMapNode | null,
     args: DeleteNodeCommandArgs
   ): DeleteNodeCommandResult => {
     const { nodeIdToDelete } = args;
@@ -52,18 +52,18 @@ export const DeleteNodeCommand = {
     const deletedNodeIds = new Set<string>();
 
     // 收集要删除的节点及其所有子节点的ID
-    function collectIds(node: MindMapNodeAST) {
+    function collectIds(node: MindMapNode) {
       deletedNodeIds.add(node.id);
       node.children.forEach(collectIds);
     }
     collectIds(nodeToDeleteInstance);
 
-    let newRootAfterDelete: MindMapNodeAST | null = workingRootNode;
+    let newRootAfterDelete: MindMapNode | null = workingRootNode;
     let newSelectedNodeId: string | null = null;
 
     if (parentOfDeleted) {
       // 从父节点的子节点列表中移除要删除的节点
-      parentOfDeleted.children = parentOfDeleted.children.filter(child => child.id !== nodeIdToDelete);
+      parentOfDeleted.children = parentOfDeleted.children.filter((child: MindMapNode) => child.id !== nodeIdToDelete);
       newSelectedNodeId = parentOfDeleted.id;
     } else if (workingRootNode && workingRootNode.id === nodeIdToDelete) {
       // 删除根节点
@@ -83,7 +83,7 @@ export const DeleteNodeCommand = {
     }
     
     // 应用布局到删除后的结构
-    const laidOutRoot = applyLayout(newRootAfterDelete);
+    const laidOutRoot = newRootAfterDelete ? applyLayout(newRootAfterDelete) : null;
 
     // 如果没有根节点剩余，newSelectedNodeId必须为null
     if (!laidOutRoot) {

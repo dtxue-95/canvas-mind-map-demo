@@ -1,4 +1,4 @@
-import { MindMapNodeAST } from './types';
+import { MindMapNode } from './types';
 import { CHILD_V_SPACING, CHILD_H_SPACING } from './constants';
 import { calculateNodeDimensions } from './utils/canvasUtils';
 import { deepCopyAST } from './utils/nodeUtils'; // 用于 applyLayout 操作副本
@@ -15,7 +15,7 @@ function _getNodeDimensions(nodeText: string): { width: number; height: number }
  * 使用提供的AST节点本身的文本
  */
 function getBranchActualHeight(
-  node: MindMapNodeAST // 节点（来自可能修改过的AST，如果尺寸发生变化）
+  node: MindMapNode // 节点（来自可能修改过的AST，如果尺寸发生变化）
 ): number {
   // 根据节点当前文本获取尺寸
   const { height: nodeHeight } = _getNodeDimensions(node.text);
@@ -44,7 +44,7 @@ function getBranchActualHeight(
  * 递归布局子树。更新节点的位置、宽度和高度。
  */
 function _layoutSubtreeRecursive(
-  nodeToLayout: MindMapNodeAST, // 来自复制的AST的节点
+  nodeToLayout: MindMapNode, // 来自复制的AST的节点
   currentX: number,
   anchorY: number
   // 如果尺寸从 nodeToLayout.text 计算，则不需要 originalNodes
@@ -104,8 +104,8 @@ function _layoutSubtreeRecursive(
  * @returns 布局后的根节点副本
  */
 export function applyLayout(
-  originalRootNode: MindMapNodeAST | null
-): MindMapNodeAST | null {
+  originalRootNode: MindMapNode | null
+): MindMapNode | null {
   if (!originalRootNode) {
     return null;
   }

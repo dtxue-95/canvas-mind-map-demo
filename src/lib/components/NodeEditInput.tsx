@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Input, Button, Icon } from '@alifd/next';
-import { MindMapNodeAST, Viewport } from '../types'; // Changed Node to MindMapNodeAST
 import { worldToScreen } from '../utils/canvasUtils';
-import { FONT_SIZE, FONT_FAMILY, TEXT_PADDING_X, TEXT_PADDING_Y, NODE_BORDER_RADIUS } from '../constants';
 
 // Props interface defined in types.ts as NodeEditInputProps
 import { NodeEditInputProps } from '../types';

@@ -1,5 +1,13 @@
-import { MindMapNodeAST } from '../types';
+import { MindMapNode } from '../types';
 import { NODE_DEFAULT_COLOR, NODE_TEXT_COLOR } from '../constants';
+
+/**
+ * 生成一个简单的唯一ID
+ */
+function generateId(): string {
+  // 结合时间戳和随机字符串以提高唯一性
+  return `node_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
 
 /**
  * 创建新节点
@@ -7,7 +15,7 @@ import { NODE_DEFAULT_COLOR, NODE_TEXT_COLOR } from '../constants';
  * @param text 节点文本内容
  * @returns 新创建的节点
  */
-export function createNode(id: string, text: string): MindMapNodeAST {
+export function createNode(id: string, text: string): MindMapNode {
   return {
     id,
     text,
@@ -27,7 +35,7 @@ export function createNode(id: string, text: string): MindMapNodeAST {
  * @param node 要计算的节点
  * @returns 后代节点总数
  */
-export function countAllDescendants(node: MindMapNodeAST | null): number {
+export function countAllDescendants(node: MindMapNode | null): number {
   if (!node || !node.children || node.children.length === 0) {
     return 0;
   }
@@ -46,19 +54,19 @@ export function countAllDescendants(node: MindMapNodeAST | null): number {
  * @param node 要复制的根节点
  * @returns 复制的节点树副本
  */
-export function deepCopyAST(node: MindMapNodeAST | null): MindMapNodeAST | null {
+export function deepCopyAST(node: MindMapNode | null): MindMapNode | null {
   if (!node) {
     return null;
   }
 
-  const copiedNode: MindMapNodeAST = {
+  const copiedNode: MindMapNode = {
     ...node, // 复制基本属性
     position: { ...node.position }, // 深度复制位置
     // 递归复制子节点
-    children: node.children ? node.children.map(child => deepCopyAST(child)!) : [],
+    children: node.children ? node.children.map((child: MindMapNode) => deepCopyAST(child)!) : [],
   };
   // 过滤掉空值（如果任何子节点的 deepCopyAST 返回 null，虽然如果子节点有效则不应该发生）
-  copiedNode.children = copiedNode.children.filter(child => child !== null);
+  copiedNode.children = copiedNode.children.filter((child: MindMapNode | null) => child !== null) as MindMapNode[];
   
   return copiedNode;
 }
@@ -69,7 +77,7 @@ export function deepCopyAST(node: MindMapNodeAST | null): MindMapNodeAST | null 
  * @param nodeId 要查找的节点ID
  * @returns 找到的节点或null
  */
-export function findNodeInAST(rootNode: MindMapNodeAST | null, nodeId: string): MindMapNodeAST | null {
+export function findNodeInAST(rootNode: MindMapNode | null, nodeId: string): MindMapNode | null {
   if (!rootNode) {
     return null;
   }
@@ -95,10 +103,10 @@ export function findNodeInAST(rootNode: MindMapNodeAST | null, nodeId: string): 
  * @returns 包含节点和父节点的对象，或null
  */
 export function findNodeAndParentInAST(
-  current: MindMapNodeAST | null,
+  current: MindMapNode | null,
   nodeId: string,
-  parent: MindMapNodeAST | null = null
-): { node: MindMapNodeAST; parent: MindMapNodeAST | null } | null {
+  parent: MindMapNode | null = null
+): { node: MindMapNode; parent: MindMapNode | null } | null {
   if (!current) {
     return null;
   }
@@ -117,39 +125,37 @@ export function findNodeAndParentInAST(
 }
 
 /**
- * 将任意数据结构的节点转换为项目所需的 MindMapNodeAST 格式。
+ * 将任意数据结构的节点转换为项目所需的 MindMapNode 格式。
  * - 递归处理 `children`。
  * - 映射 `id` 和 `text` 字段（`name` 或 `label` 字段可作为 `text` 的备用）。
  * - 为缺失的 `position`, `width`, `height`, `color` 等字段补充默认值。
  * - 忽略源数据中的多余字段。
  *
- * @param sourceNode 任何来源的、包含 id, text/name/label, 和 children 的节点对象。
- * @returns 格式化后的 MindMapNodeAST 节点，或在源数据无效时返回 null。
+ * @param obj 任何结构的对象
+ * @returns 一个符合MindMapNode规范的对象
  */
-export function transformToMindMapNode(sourceNode: any): MindMapNodeAST | null {
-  if (!sourceNode || !sourceNode.id || (!sourceNode.text && !sourceNode.name && !sourceNode.label)) {
-    // 基础验证：节点必须存在，且有id和文本内容
-    return null;
+export function transformToMindMapNode(obj: any): MindMapNode {
+  if (!obj || typeof obj !== 'object') {
+    // 对于无效输入，返回一个默认节点或抛出错误
+    return createNode(generateId(), '无效节点');
   }
 
-  const transformedNode: MindMapNodeAST = {
-    id: sourceNode.id,
-    text: sourceNode.text || sourceNode.name || sourceNode.label,
-    position: { x: 0, y: 0 },
-    width: 0,
-    height: 0,
-    color: sourceNode.color || NODE_DEFAULT_COLOR,
-    textColor: sourceNode.textColor || NODE_TEXT_COLOR,
-    isCollapsed: sourceNode.isCollapsed === true, // 明确检查布尔值 true
-    children: [], // 先初始化为空数组
-    childrenCount: 0,
-  };
+  const newNode: MindMapNode = createNode(
+    obj.id || generateId(),
+    obj.text || '未命名节点'
+  );
 
-  if (sourceNode.children && Array.isArray(sourceNode.children)) {
-    transformedNode.children = sourceNode.children
-      .map((child: any) => transformToMindMapNode(child)) // 递归转换子节点
-      .filter((child): child is MindMapNodeAST => child !== null); // 过滤掉转换失败的子节点
+  // 递归转换子节点
+  if (obj.children && Array.isArray(obj.children)) {
+    newNode.children = obj.children.map(transformToMindMapNode);
   }
 
-  return transformedNode;
+  // 显式地从原始对象复制可选属性
+  if (obj.color) newNode.color = obj.color;
+  if (obj.textColor) newNode.textColor = obj.textColor;
+  if ('isCollapsed' in obj) newNode.isCollapsed = !!obj.isCollapsed;
+  else newNode.isCollapsed = false;
+
+  // 尺寸和位置将由布局引擎后续计算和设置
+  return newNode;
 }
