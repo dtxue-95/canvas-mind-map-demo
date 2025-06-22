@@ -2,15 +2,11 @@ import React, { useState } from 'react';
 import {
   ReactMindMap,
   type ReactMindMapProps,
-  type MindMapNode,
-  type ToolbarButtonConfig,
-  defaultTopButtons,
-  defaultBottomButtons
-} from './lib'; // <--- 主要变化在这里
-// import { initialData } from './lib/initialData'; // <--- 同样，从 lib 导入
+  type MindMapNodeAST,
+} from './lib';
 
-// 确保 initialData 符合 MindMapNode 类型
-const typedInitialData: MindMapNode =  {
+// Let the component handle the transformation from raw data to MindMapNodeAST
+const rawInitialData =  {
   id: '1',
   text: '中心主题：项目规划',
   children: [
@@ -62,14 +58,11 @@ const typedInitialData: MindMapNode =  {
 };
 
 function App() {
-  const [data, setData] = useState<MindMapNode>(typedInitialData);
-
-  // 示例：自定义顶部工具栏，移除"删除"按钮
-  const customTopToolbar: ToolbarButtonConfig[] = defaultTopButtons.filter(btn => btn.id !== 'delete-node');
+  const [data, setData] = useState(rawInitialData);
 
   const mindMapProps: ReactMindMapProps = {
     initialData: data,
-    onDataChange: setData, // 假设 onDataChange prop 存在
+    onDataChange: (newData: MindMapNodeAST) => setData(newData as any),
     showTopToolbar: true,
     showBottomToolbar: true,
   };

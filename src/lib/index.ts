@@ -2,7 +2,7 @@
 import './styles.css';
 
 // Export main component
-export { default as ReactMindMap } from './ReactMindMap';
+export { default as ReactMindMap, type ReactMindMapProps } from './ReactMindMap';
 
 // Export types
 export * from './types';
@@ -10,4 +10,4 @@ export * from './types';
 // Export default configs
 export * from './constants';
 
-export { defaultTopButtons, defaultBottomButtons } from './defaultConfig';
+export { getDefaultTopToolbarConfig, getDefaultBottomToolbarConfig } from './defaultConfig';

@@ -1,20 +1,51 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Toolbar from './components/Toolbar';
 import MindMapCanvas from './components/MindMapCanvas';
 import BottomViewportToolbar from './components/BottomViewportToolbar';
 import SearchWidget from './components/SearchWidget';
 import { useMindMap } from './hooks/useMindMap';
-import { MindMapNodeAST, ToolbarButtonConfig, Point } from './types';
+import { MindMapNodeAST, Command, Point, ToolbarButtonConfig } from './types';
 import { findNodeInAST } from './utils/nodeUtils';
 import { worldToScreen } from './utils/canvasUtils';
 import { getDefaultTopToolbarConfig, getDefaultBottomToolbarConfig } from './defaultConfig';
+import { FiMaximize, FiMinimize } from 'react-icons/fi';
+
+// Import all commands
+import { undoCommand } from './commands/undoCommand';
+import { redoCommand } from './commands/redoCommand';
+import { addSiblingNodeCommand } from './commands/addSiblingNodeCommand';
+import { addChildNodeCommand } from './commands/addChildNodeCommand';
+import { deleteNodeCommand } from './commands/deleteNodeCommand';
+import { fitViewCommand } from './commands/fitViewCommand';
+import { toggleReadOnlyCommand } from './commands/toggleReadOnlyCommand';
+import { zoomInCommand } from './commands/zoomInCommand';
+import { zoomOutCommand } from './commands/zoomOutCommand';
+import { toggleSearchCommand } from './commands/toggleSearchCommand';
+import { centerViewCommand } from './commands/centerViewCommand';
+import { toggleFullscreenCommand } from './commands/toggleFullscreenCommand';
+
+// Create a command registry
+const commandRegistry: Map<string, Command> = new Map([
+  [undoCommand.id, undoCommand],
+  [redoCommand.id, redoCommand],
+  [addSiblingNodeCommand.id, addSiblingNodeCommand],
+  [addChildNodeCommand.id, addChildNodeCommand],
+  [deleteNodeCommand.id, deleteNodeCommand],
+  [fitViewCommand.id, fitViewCommand],
+  [toggleReadOnlyCommand.id, toggleReadOnlyCommand],
+  [zoomInCommand.id, zoomInCommand],
+  [zoomOutCommand.id, zoomOutCommand],
+  [toggleSearchCommand.id, toggleSearchCommand],
+  [centerViewCommand.id, centerViewCommand],
+  [toggleFullscreenCommand.id, toggleFullscreenCommand],
+]);
 
 export interface ReactMindMapProps {
   initialData: MindMapNodeAST;
   width?: string;
   height?: string;
-  topToolbarConfig?: ToolbarButtonConfig[];
-  bottomToolbarConfig?: ToolbarButtonConfig[];
+  topToolbarConfig?: string[];
+  bottomToolbarConfig?: string[];
   showTopToolbar?: boolean;
   showBottomToolbar?: boolean;
   readOnly?: boolean;
@@ -25,8 +56,8 @@ export default function ReactMindMap({
   initialData,
   width = '100vw',
   height = '100vh',
-  topToolbarConfig,
-  bottomToolbarConfig,
+  topToolbarConfig: topToolbarProp,
+  bottomToolbarConfig: bottomToolbarProp,
   showTopToolbar = true,
   showBottomToolbar = true,
   readOnly = true,
@@ -36,7 +67,24 @@ export default function ReactMindMap({
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
   const mindMapHook = useMindMap(canvasSize, initialData);
-  const { state, pan, toggleReadOnlyMode, goToNextMatch, goToPreviousMatch, setSearchTerm } = mindMapHook;
+  const { 
+    state, 
+    pan, 
+    toggleReadOnlyMode, 
+    goToNextMatch, 
+    goToPreviousMatch, 
+    setSearchTerm, 
+    undo, 
+    redo, 
+    canUndo, 
+    canRedo,
+    addNode,
+    deleteNode,
+    fitView,
+    zoomIn,
+    zoomOut,
+    centerView,
+  } = mindMapHook;
 
   const [topHandlePosition, setTopHandlePosition] = useState({ x: 0, y: 0 });
   const [bottomHandlePosition, setBottomHandlePosition] = useState({ x: 0, y: 0 });
@@ -44,12 +92,11 @@ export default function ReactMindMap({
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // On initial mount, if the `readOnly` prop is explicitly false, set the component to editable.
-  // This effect runs only once and will not conflict with user toggles afterward.
   useEffect(() => {
     if (readOnly === false) {
       toggleReadOnlyMode(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -100,6 +147,7 @@ export default function ReactMindMap({
     }
   }, [state.currentMatchNodeId, state.rootNode, canvasSize, state.viewport.zoom, mindMapHook.setViewport, pan]);
 
+
   const zoomPercentage = Math.round(state.viewport.zoom * 100);
 
   const handleToggleFullscreen = () => {
@@ -119,53 +167,63 @@ export default function ReactMindMap({
   }, []);
   
   const handlers = {
-    addNode: mindMapHook.addNode,
-    deleteNode: mindMapHook.deleteNode,
-    zoom: mindMapHook.zoom,
-    fitView: mindMapHook.fitView,
-    toggleFullscreen: handleToggleFullscreen,
-    toggleReadOnlyMode: mindMapHook.toggleReadOnlyMode,
+    addNode,
+    deleteNode,
+    fitView,
+    toggleReadOnlyMode,
+    undo,
+    redo,
+    zoomIn,
+    zoomOut,
     toggleSearch: () => setIsSearchVisible(!isSearchVisible),
+    centerView,
+    toggleFullscreen: handleToggleFullscreen,
   };
-
-  const topToolbarCommands = (topToolbarConfig ?? getDefaultTopToolbarConfig({
-    selectedNodeId: state.selectedNodeId,
-    isReadOnly: state.isReadOnly,
-    isFullscreen: isFullscreen,
-    rootNode: state.rootNode,
-  }, handlers)).filter((btn: ToolbarButtonConfig) => btn.visible !== false);
   
-  // 包装 setViewport，便于调试
-  const safeSetViewport = (viewportUpdate: Partial<typeof state.viewport>) => {
-    mindMapHook.setViewport(viewportUpdate);
-  };
+  const topToolbarConfig = topToolbarProp ?? getDefaultTopToolbarConfig();
+  const bottomToolbarConfig = bottomToolbarProp ?? getDefaultBottomToolbarConfig();
 
-  // 居中按钮专用
-  const handleCenterContent = () => {
-    const size = canvasSize && canvasSize.width > 0 && canvasSize.height > 0 ? canvasSize : { width: window.innerWidth, height: window.innerHeight };
-    
-    const nodeToCenterId = state.currentMatchNodeId || state.selectedNodeId;
-
-    if (nodeToCenterId && state.rootNode) {
-      const node = findNodeInAST(state.rootNode, nodeToCenterId);
-      if (node) {
-        const nodeCenter = { x: node.position.x + node.width / 2, y: node.position.y + node.height / 2 };
-        const newX = size.width / 2 - nodeCenter.x * state.viewport.zoom;
-        const newY = size.height / 2 - nodeCenter.y * state.viewport.zoom;
-        safeSetViewport({ x: newX, y: newY });
-        return;
+  const buildToolbarCommands = (commandIds: string[]): ToolbarButtonConfig[] => {
+    return commandIds.map(id => {
+      const command = commandRegistry.get(id);
+      if (!command) {
+        console.warn(`Command with id "${id}" not found in registry.`);
+        return null;
       }
-    }
-    
-    // Fallback to fitting the entire view if no specific node is targeted
-    mindMapHook.fitView(true);
+  
+      let disabled = false;
+      let extraArgs: any[] = [];
+      if (id === 'undo') extraArgs = [canUndo];
+      if (id === 'redo') extraArgs = [canRedo];
+  
+      disabled = !command.canExecute(state, ...extraArgs);
+  
+      const button: ToolbarButtonConfig = {
+        id: command.id,
+        label: command.label,
+        title: command.title,
+        icon: command.icon as React.ComponentType,
+        action: () => command.execute(state, handlers),
+        disabled: disabled,
+      };
+      
+      // Handle dynamic properties for specific commands like toggle-read-only
+      if (command.getDynamicProps) {
+        const dynamicProps = command.getDynamicProps(state);
+        Object.assign(button, dynamicProps);
+      }
+      
+      if (command.id === 'toggle-fullscreen') {
+        button.icon = isFullscreen ? FiMinimize : FiMaximize;
+        button.title = isFullscreen ? '退出全屏' : '进入全屏';
+      }
+      
+      return button;
+    }).filter((c): c is ToolbarButtonConfig => c !== null);
   };
-
-  const bottomToolbarCommands = (bottomToolbarConfig ?? getDefaultBottomToolbarConfig({
-    selectedNodeId: state.selectedNodeId,
-    isReadOnly: state.isReadOnly,
-    isFullscreen: isFullscreen,
-  }, { ...handlers, fitView: mindMapHook.fitView, fitViewCenter: handleCenterContent }, canvasSize)).filter((btn: ToolbarButtonConfig) => btn.visible !== false);
+  
+  const topToolbarCommands = useMemo(() => buildToolbarCommands(topToolbarConfig), [state, topToolbarConfig, canUndo, canRedo, handlers]);
+  const bottomToolbarCommands = useMemo(() => buildToolbarCommands(bottomToolbarConfig), [state, bottomToolbarConfig, handlers]);
   
   const updateTopHandlePosition = (newPos: { x: number; y: number }) => {
     const newY = Math.max(0, Math.min(newPos.y, bottomHandlePosition.y - 64 - 10));
@@ -178,19 +236,36 @@ export default function ReactMindMap({
     setBottomHandlePosition({ x: newPos.x, y: newY });
   };
 
-  // 1. 全局快捷键监听，Cmd+F/Ctrl+F 打开/关闭搜索
+  // Global hotkeys
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const active = document.activeElement;
-      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || (active as HTMLElement).contentEditable === 'true')) return;
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+      const activeEl = document.activeElement;
+      const isBodyActive = activeEl === document.body;
+      const isCanvasActive = canvasContainerRef.current?.contains(activeEl);
+
+      if (!isBodyActive && !isCanvasActive) return;
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const undoKeyPressed = (isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey;
+      const redoKeyPressed = (isMac ? e.metaKey && e.shiftKey && e.key.toLowerCase() === 'z' : e.ctrlKey && e.key.toLowerCase() === 'y');
+
+      if (undoKeyPressed) {
+        e.preventDefault();
+        const cmd = commandRegistry.get('undo');
+        if (cmd && cmd.canExecute(state, canUndo)) cmd.execute(state, handlers);
+      } else if (redoKeyPressed) {
+        e.preventDefault();
+        const cmd = commandRegistry.get('redo');
+        if (cmd && cmd.canExecute(state, canRedo)) cmd.execute(state, handlers);
+      } else if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         setIsSearchVisible((v: boolean) => !v);
       }
     };
-    window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, []);
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state, canUndo, canRedo, handlers]);
 
   // 当搜索框关闭时，自动清空搜索词和结果
   useEffect(() => {
@@ -217,6 +292,8 @@ export default function ReactMindMap({
           zoomPercentage={zoomPercentage}
           handlePosition={bottomHandlePosition}
           onPositionChange={updateBottomHandlePosition}
+          onToggleSearch={() => setIsSearchVisible(!isSearchVisible)}
+          onToggleFullscreen={handleToggleFullscreen}
         />
       )}
       {isSearchVisible && (

@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Input, Button, Icon } from '@alifd/next';
 import { worldToScreen } from '../utils/canvasUtils';
-
-// Props interface defined in types.ts as NodeEditInputProps
 import { NodeEditInputProps } from '../types';
 
 const NodeEditInput: React.FC<NodeEditInputProps> = ({ node, viewport, onSave, onCancel, canvasBounds }) => {
   const [text, setText] = useState(node.text);
-  const inputRef = useRef<any>(null); // 使用 any 类型以兼容 @alifd/next 的 ref
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 根据节点在Canvas中的位置计算输入框的绝对定位
+  // Dynamically calculate the position and size of the textarea
   const style: React.CSSProperties = (() => {
     if (!canvasBounds) return { display: 'none' };
 
@@ -23,54 +20,70 @@ const NodeEditInput: React.FC<NodeEditInputProps> = ({ node, viewport, onSave, o
       top: `${canvasBounds.top + nodeScreenPos.y}px`,
       width: `${nodeScreenWidth}px`,
       height: `${nodeScreenHeight}px`,
+      background: node.color,
+      border: '1px solid #3b82f6',
+      borderRadius: '12px',
+      textAlign: 'center',
+      color: node.textColor,
+      fontSize: `${16 * viewport.zoom}px`,
+      fontFamily: 'sans-serif',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      flexDirection: 'column',
-      gap: '8px', // 间距
+      padding: `${8 * viewport.zoom}px`,
+      boxSizing: 'border-box',
+      outline: '2px solid #3b82f6',
+      resize: 'none',
+      overflow: 'hidden',
+      lineHeight: '1.2',
     };
   })();
 
   const handleSave = () => {
-    onSave(text.trim() || '新想法'); // 保存时不为空
+    if (text.trim() !== node.text) {
+      onSave(text.trim());
+    } else {
+      onCancel();
+    }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSave();
     } else if (e.key === 'Escape') {
       onCancel();
     }
   };
-
+  
+  // Auto-resize textarea height
   useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.focus();
-      // @alifd/next 的 Input 没有 select() 方法，但 focus() 通常足够
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto'; // Reset height
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [text, style.width]); // Re-run when text or width changes
+
+  // Focus and select text on mount
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.focus();
+      textarea.select();
     }
   }, []);
 
   return (
-    <div style={style}>
-      <Input
-        ref={inputRef}
-        value={text}
-        onChange={(value) => setText(String(value))}
-        onKeyDown={handleKeyDown}
-        onBlur={handleSave} // 失去焦点时自动保存
-        style={{ width: '90%' }}
-        aria-label="编辑节点文本"
-      />
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <Button type="primary" onClick={handleSave} size="small">
-          <Icon type="success" /> 保存
-        </Button>
-        <Button onClick={onCancel} size="small">
-          <Icon type="close" /> 取消
-        </Button>
-      </div>
-    </div>
+    <textarea
+      ref={textareaRef}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onKeyDown={handleKeyDown}
+      onBlur={handleSave} // Save on blur
+      style={style}
+      aria-label="编辑节点文本"
+    />
   );
 };
 

@@ -1,5 +1,17 @@
 import { IconType } from 'react-icons';
 import React from 'react';
+import { MindMapState } from './hooks/useMindMap';
+
+// 定义一个通用的命令接口
+export interface Command {
+  id: string;
+  label: string;
+  title: string;
+  icon: IconType | ((state: MindMapState) => IconType);
+  canExecute: (state: MindMapState, ...args: any[]) => boolean;
+  execute: (state: MindMapState, ...args: any[]) => void;
+  getDynamicProps?: (state: MindMapState) => Partial<Pick<Command, 'icon' | 'title' | 'label'>>;
+}
 
 // 基础几何类型
 export interface Point {
@@ -41,21 +53,20 @@ export interface ToolbarButtonConfig {
   visible?: boolean; // Default is true if not specified
 }
 
-// 添加节点命令参数
-export interface AddNodeCommandArgs {
-  text: string;                  // 新节点文本
-  targetParentId?: string | null; // 目标父节点ID（AST中的父节点）
+// These are now just payload shapes, not 'command' args
+export interface AddNodePayload {
+  text: string;
+  parentId: string | null;
+}
+
+export interface DeleteNodePayload {
+  nodeId: string;
 }
 
 // 添加节点命令结果
 export interface AddNodeCommandResult {
   rootNode: MindMapNodeAST | null; // 新的AST根节点
   newNodeId: string;             // 新创建的节点ID
-}
-
-// 删除节点命令参数
-export interface DeleteNodeCommandArgs {
-  nodeIdToDelete: string;        // 要删除的节点ID（从AST中删除）
 }
 
 // 删除节点命令结果
@@ -67,36 +78,40 @@ export interface DeleteNodeCommandResult {
 
 // 思维导图状态管理动作类型
 export type MindMapAction =
-  | { type: 'INIT_MAP' }                                                                           // 初始化地图
-  | { type: 'APPLY_ADD_NODE_RESULT'; payload: AddNodeCommandResult }                               // 应用添加节点结果
-  | { type: 'APPLY_DELETE_NODE_RESULT'; payload: DeleteNodeCommandResult }                         // 应用删除节点结果
-  | { type: 'UPDATE_NODE_TEXT'; payload: { nodeId: string; text: string } }                       // 更新节点文本
-  | { type: 'MOVE_NODE'; payload: { nodeId: string; position: Point } }                           // 移动节点（世界坐标中的位置）
-  | { type: 'SET_SELECTED_NODE'; payload: { nodeId: string | null } }                             // 设置选中节点
-  | { type: 'SET_EDITING_NODE'; payload: { nodeId: string | null } }                              // 设置编辑节点
-  | { type: 'SET_VIEWPORT'; payload: Partial<Viewport> }                                          // 设置视口
-  | { type: 'LOAD_DATA'; payload: { rootNode: MindMapNodeAST | null } }                           // 加载数据作为AST
-  | { type: 'SET_SEARCH_TERM'; payload: string }                                                  // 设置搜索词
-  | { type: 'APPLY_LAYOUT_FROM_ROOT'; payload: { rootNode: MindMapNodeAST } }                        // 从根节点应用布局
-  | { type: 'SET_READ_ONLY'; payload: { isReadOnly: boolean } }                                    // 设置只读模式
-  | { type: 'TOGGLE_NODE_COLLAPSE'; payload: { nodeId: string } }                                // 切换节点折叠状态
-  | { type: 'GO_TO_NEXT_MATCH' }                                                                // 导航到下一个搜索匹配项
-  | { type: 'GO_TO_PREVIOUS_MATCH' };                                                           // 导航到上一个搜索匹配项
+  | { type: 'INIT_MAP' }
+  | { type: 'ADD_NODE'; payload: AddNodePayload }
+  | { type: 'DELETE_NODE'; payload: DeleteNodePayload }
+  | { type: 'UPDATE_NODE_TEXT'; payload: { nodeId: string; text: string } }
+  | { type: 'MOVE_NODE'; payload: { nodeId: string; position: Point } }
+  | { type: 'SET_SELECTED_NODE'; payload: { nodeId: string | null } }
+  | { type: 'SET_EDITING_NODE'; payload: { nodeId: string | null } }
+  | { type: 'SET_VIEWPORT'; payload: Partial<Viewport> }
+  | { type: 'LOAD_DATA'; payload: { rootNode: MindMapNodeAST | null } }
+  | { type: 'SET_SEARCH_TERM'; payload: string }
+  | { type: 'APPLY_LAYOUT_FROM_ROOT'; payload: { rootNode: MindMapNodeAST } }
+  | { type: 'SET_READ_ONLY'; payload: { isReadOnly: boolean } }
+  | { type: 'TOGGLE_NODE_COLLAPSE'; payload: { nodeId: string } }
+  | { type: 'GO_TO_NEXT_MATCH' }
+  | { type: 'GO_TO_PREVIOUS_MATCH' }
+  | { type: 'UNDO' }
+  | { type: 'REDO' }
+  | { type: 'REPLACE_STATE', payload: { past: MindMapState[], present: MindMapState, future: MindMapState[] } };
 
-// 思维导图状态
+// This interface is now defined and exported from useMindMap.ts
+/*
 export interface MindMapState {
-  rootNode: MindMapNodeAST | null;        // AST的单一根节点
-  selectedNodeId: string | null;          // 当前选中的节点ID
-  editingNodeId: string | null;           // 当前编辑的节点ID
-  viewport: Viewport;                     // 当前视口状态
-  isReadOnly: boolean;                    // 是否为只读模式
-  // 搜索相关状态
+  rootNode: MindMapNodeAST | null;
+  selectedNodeId: string | null;
+  editingNodeId: string | null;
+  viewport: Viewport;
+  isReadOnly: boolean;
   currentSearchTerm: string;
-  searchMatches: string[];          // 有序的匹配节点ID数组
-  highlightedNodeIds: Set<string>;  // 所有匹配节点ID的集合，用于通用高亮
-  currentMatchIndex: number;        // 当前在 searchMatches 数组中的索引
-  currentMatchNodeId: string | null; // 当前导航到的节点ID，用于特殊高亮
+  searchMatches: string[];
+  highlightedNodeIds: Set<string>;
+  currentMatchIndex: number;
+  currentMatchNodeId: string | null;
 }
+*/
 
 // 节点编辑输入组件属性
 export interface NodeEditInputProps {
