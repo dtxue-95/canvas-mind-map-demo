@@ -117,40 +117,89 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
       const originalTerm = action.payload;
       const searchTerm = originalTerm.toLowerCase().trim();
       const newHighlightedNodeIds = new Set<string>();
-      const newExactMatchNodeIds = new Set<string>();
+      const nodesToExpand = new Set<string>();
+      let newRootNode = state.rootNode;
+      
+      let bestMatchNodeId: string | null = null;
+      let maxMatchCount = 0;
 
-      // 只有当搜索词不为空时才进行匹配
       if (searchTerm && searchTerm.length > 0) {
+        const countOccurrences = (str: string, sub: string) => {
+          if (sub.length === 0) return 0;
+          const escapedSub = sub.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(escapedSub, 'gi');
+          return (str.match(regex) || []).length;
+        };
+
+        function findPathToNode(node: MindMapNodeAST, targetId: string, path: string[] = []): string[] | null {
+          path.push(node.id);
+          if (node.id === targetId) {
+            return path;
+          }
+          for (const child of node.children) {
+            const foundPath = findPathToNode(child, targetId, [...path]);
+            if (foundPath) {
+              return foundPath;
+            }
+          }
+          return null;
+        }
+
         function traverseAndHighlight(node: MindMapNodeAST | null) {
           if (!node) return;
           
-          const nodeTextLower = node.text.toLowerCase();
-          const isExactMatch = nodeTextLower === searchTerm;
-          const isFuzzyMatch = nodeTextLower.includes(searchTerm);
+          const matchCount = countOccurrences(node.text, searchTerm);
           
-          if (isExactMatch || isFuzzyMatch) {
+          if (matchCount > 0) {
             newHighlightedNodeIds.add(node.id);
-            // 如果是精确匹配，添加到精确匹配集合
-            if (isExactMatch) {
-              newExactMatchNodeIds.add(node.id);
+
+            if (matchCount > maxMatchCount) {
+              maxMatchCount = matchCount;
+              bestMatchNodeId = node.id;
+            }
+            
+            // 找到匹配项，将其所有父节点加入待展开列表
+            if (state.rootNode) {
+              const path = findPathToNode(state.rootNode, node.id);
+              if (path) {
+                path.forEach(ancestorId => nodesToExpand.add(ancestorId));
+              }
             }
           }
           
-          if (!node.isCollapsed) { // 仅搜索可见的子节点
-            node.children.forEach(traverseAndHighlight);
+          // 始终遍历所有子节点，无视 isCollapsed
+          node.children.forEach(traverseAndHighlight);
+        }
+        
+        traverseAndHighlight(state.rootNode);
+
+        // 如果有需要展开的节点，则进行展开操作
+        if (nodesToExpand.size > 0) {
+          const tempRoot = deepCopyAST(state.rootNode);
+          if (tempRoot) {
+            nodesToExpand.forEach(nodeId => {
+              const node = findNodeInAST(tempRoot, nodeId);
+              if (node && node.children.length > 0) {
+                node.isCollapsed = false;
+              }
+            });
+            // 展开后需要重新计算布局
+            newRootNode = applyLayout(tempRoot);
           }
         }
-        traverseAndHighlight(state.rootNode);
       }
-      // 如果搜索词为空或只包含空白字符，newHighlightedNodeIds 保持为空集合，清除所有高亮
 
-      // 使用原始输入值更新状态，保持输入框的值与状态一致
+      const newExactMatchNodeIds = new Set<string>();
+      if (bestMatchNodeId) {
+        newExactMatchNodeIds.add(bestMatchNodeId);
+      }
+
       return { 
         ...state, 
+        rootNode: newRootNode,
         currentSearchTerm: originalTerm, 
         highlightedNodeIds: newHighlightedNodeIds,
         exactMatchNodeIds: newExactMatchNodeIds
-        // 移除自动选中匹配节点的逻辑，匹配到的节点不应该被默认选中
       };
     }
     case 'APPLY_LAYOUT_FROM_ROOT': {
