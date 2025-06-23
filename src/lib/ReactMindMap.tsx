@@ -59,6 +59,14 @@ export interface ReactMindMapProps {
    */
   bottomToolbarCustomButtons?: ToolbarButtonConfig[];
   getNodeStyle: (node: MindMapNode) => React.CSSProperties;
+  /**
+   * 画布背景色，默认 #f9fafb
+   */
+  canvasBackgroundColor?: string;
+  /**
+   * 是否显示点状背景，类似 reactflow，默认 false
+   */
+  showDotBackground?: boolean;
 }
 
 export default function ReactMindMap({
@@ -74,6 +82,8 @@ export default function ReactMindMap({
   topToolbarCustomButtons,
   bottomToolbarCustomButtons,
   getNodeStyle,
+  canvasBackgroundColor = '#f9fafb',
+  showDotBackground = false,
 }: ReactMindMapProps) {
   const appContainerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -299,7 +309,11 @@ export default function ReactMindMap({
   }, [isSearchVisible, setSearchTerm]);
 
   return (
-    <div ref={appContainerRef} style={{ width, height }} className="flex flex-col bg-gray-200 overflow-hidden relative select-none">
+    <div
+      ref={appContainerRef}
+      style={{ width, height, position: 'relative', background: canvasBackgroundColor }}
+      className="react-mindmap-app-container"
+    >
       {showTopToolbar && (
         <Toolbar 
           commands={topToolbarCommands} 
@@ -307,8 +321,13 @@ export default function ReactMindMap({
           onPositionChange={updateTopHandlePosition}
         />
       )}
-      <div ref={canvasContainerRef} className="flex-grow w-full h-full relative overflow-hidden">
-        {canvasSize && <MindMapCanvas mindMapHookInstance={mindMapHook} getNodeStyle={getNodeStyle} />}
+      <div ref={canvasContainerRef} style={{ width: '100%', height: '100%' }}>
+        <MindMapCanvas
+          mindMapHookInstance={mindMapHook}
+          getNodeStyle={getNodeStyle}
+          canvasBackgroundColor={canvasBackgroundColor}
+          showDotBackground={showDotBackground}
+        />
       </div>
       {showBottomToolbar && (
         <BottomViewportToolbar 

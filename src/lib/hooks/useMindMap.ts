@@ -347,8 +347,43 @@ export function useMindMap(
     historyDispatch({ type: 'SET_READ_ONLY', payload: { isReadOnly: newIsReadOnly } });
   }, [presentState.isReadOnly]);
   const toggleNodeCollapse = useCallback((nodeId: string) => historyDispatch({ type: 'TOGGLE_NODE_COLLAPSE', payload: { nodeId } }), []);
-  const goToNextMatch = useCallback(() => historyDispatch({ type: 'GO_TO_NEXT_MATCH' }), []);
-  const goToPreviousMatch = useCallback(() => historyDispatch({ type: 'GO_TO_PREVIOUS_MATCH' }), []);
+
+  // 辅助函数：展开到目标节点的所有父节点
+  const expandPathToNode = useCallback((nodeId: string) => {
+    function findPath(node: MindMapNode | null, targetId: string, path: MindMapNode[] = []): MindMapNode[] | null {
+      if (!node) return null;
+      if (node.id === targetId) return [...path, node];
+      for (const child of node.children || []) {
+        const result = findPath(child, targetId, [...path, node]);
+        if (result) return result;
+      }
+      return null;
+    }
+    const path = findPath(presentState.rootNode, nodeId);
+    if (path) {
+      // 除了最后一个（自己），其余全部展开
+      path.slice(0, -1).forEach(n => {
+        if (n.isCollapsed) historyDispatch({ type: 'TOGGLE_NODE_COLLAPSE', payload: { nodeId: n.id } });
+      });
+    }
+  }, [presentState.rootNode, historyDispatch]);
+
+  const goToNextMatch = useCallback(() => {
+    historyDispatch({ type: 'GO_TO_NEXT_MATCH' });
+    // 跳转后自动展开到目标节点
+    setTimeout(() => {
+      const matchId = state.present.searchMatches[(state.present.currentMatchIndex + 1) % state.present.searchMatches.length];
+      if (matchId) expandPathToNode(matchId);
+    }, 0);
+  }, [historyDispatch, state.present.searchMatches, state.present.currentMatchIndex, expandPathToNode]);
+
+  const goToPreviousMatch = useCallback(() => {
+    historyDispatch({ type: 'GO_TO_PREVIOUS_MATCH' });
+    setTimeout(() => {
+      const matchId = state.present.searchMatches[(state.present.currentMatchIndex - 1 + state.present.searchMatches.length) % state.present.searchMatches.length];
+      if (matchId) expandPathToNode(matchId);
+    }, 0);
+  }, [historyDispatch, state.present.searchMatches, state.present.currentMatchIndex, expandPathToNode]);
 
   const undo = useCallback(() => historyDispatch({ type: 'UNDO' }), []);
   const redo = useCallback(() => historyDispatch({ type: 'REDO' }), []);

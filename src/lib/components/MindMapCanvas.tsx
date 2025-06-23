@@ -15,6 +15,14 @@ interface MindMapCanvasProps {
    * 获取节点自定义样式的回调。可用于动态设置每个节点的 style。
    */
   getNodeStyle?: (node: MindMapNode, state: any) => React.CSSProperties;
+  /**
+   * 画布背景色，默认 #f9fafb
+   */
+  canvasBackgroundColor?: string;
+  /**
+   * 是否显示点状背景，类似 reactflow
+   */
+  showDotBackground?: boolean;
 }
 
 // Helper function to find the node at a given point in the AST
@@ -41,7 +49,7 @@ function findNodeInASTFromPoint(
 }
 
 
-const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle }) => {
+const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground }) => {
   const {
     state, setSelectedNode, setEditingNode, zoom, pan,
     updateNodeText, addNode: mindMapAddNode, deleteNode: mindMapDeleteNode,
@@ -158,8 +166,25 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     canvas.style.height = `${currentCanvasSize.height}px`;
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
-    ctx.fillStyle = CANVAS_BACKGROUND_COLOR;
+    // 1. 填充背景色
+    ctx.fillStyle = canvasBackgroundColor || CANVAS_BACKGROUND_COLOR;
     ctx.fillRect(0, 0, currentCanvasSize.width, currentCanvasSize.height);
+
+    // 2. 可选：绘制点状背景
+    if (showDotBackground) {
+      const dotSpacing = 24;
+      const dotRadius = 1.2;
+      ctx.save();
+      ctx.fillStyle = '#d1d5db'; // Tailwind gray-300
+      for (let x = 0; x < currentCanvasSize.width; x += dotSpacing) {
+        for (let y = 0; y < currentCanvasSize.height; y += dotSpacing) {
+          ctx.beginPath();
+          ctx.arc(x, y, dotRadius, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
 
     ctx.save();
     ctx.translate(viewport.x, viewport.y);
@@ -171,7 +196,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     }
 
     ctx.restore();
-  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, currentMatchNodeId, isReadOnly, drawBranchRecursive]);
+  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, currentMatchNodeId, isReadOnly, drawBranchRecursive, canvasBackgroundColor, showDotBackground]);
 
   const getMousePositionOnCanvas = (e: React.MouseEvent): Point => {
     const canvas = canvasRef.current;

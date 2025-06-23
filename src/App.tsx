@@ -84,6 +84,8 @@ function App() {
       if (node.text.includes('测试')) return { background: '#e0f7fa', border: '2px solid #00bcd4' };
       return {}
     },
+    canvasBackgroundColor:"#fffbe6",
+    showDotBackground:true,
   };
 
   return (
