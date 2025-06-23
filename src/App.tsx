@@ -68,7 +68,7 @@ function App() {
     disabled: (state) => state.isReadOnly, // 自动禁用
   };
 
-  // 工具条按钮 key 必须与命令 id 完全一致（短横线风格），如 'add-child-node', 'delete-node' 等
+  // 工具条按钮 key 必须与命令 id 完全一致（短横线风格），如 'add-child-node', 'delete-node'
   const mindMapProps: ReactMindMapProps = {
     initialData: data as MindMapNode,
     onDataChange: (newData: MindMapNode) => setData(newData as any),
