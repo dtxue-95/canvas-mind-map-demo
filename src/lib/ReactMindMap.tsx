@@ -9,6 +9,7 @@ import { findNodeInAST } from './utils/nodeUtils';
 import { worldToScreen } from './utils/canvasUtils';
 import { getDefaultTopToolbarConfig, getDefaultBottomToolbarConfig } from './defaultConfig';
 import { FiMaximize, FiMinimize } from 'react-icons/fi';
+import Minimap from './components/Minimap';
 
 // Import all commands
 import { undoCommand } from './commands/undoCommand';
@@ -67,6 +68,10 @@ export interface ReactMindMapProps {
    * 是否显示点状背景，类似 reactflow，默认 false
    */
   showDotBackground?: boolean;
+  /**
+   * 是否显示右下角 Minimap 缩略图，默认 true
+   */
+  showMinimap?: boolean;
 }
 
 export default function ReactMindMap({
@@ -84,6 +89,7 @@ export default function ReactMindMap({
   getNodeStyle,
   canvasBackgroundColor = '#f9fafb',
   showDotBackground = false,
+  showMinimap = true,
 }: ReactMindMapProps) {
   const appContainerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -328,6 +334,16 @@ export default function ReactMindMap({
           canvasBackgroundColor={canvasBackgroundColor}
           showDotBackground={showDotBackground}
         />
+        {/* 缩略图 Minimap，右下角悬浮显示，仅在 rootNode、canvasSize 有效且 showMinimap 时渲染 */}
+        {showMinimap && state.rootNode && canvasSize && (
+          <Minimap
+            rootNode={state.rootNode}
+            viewport={state.viewport}
+            canvasSize={canvasSize}
+            onViewportChange={mindMapHook.setViewport}
+            getNodeStyle={getNodeStyle}
+          />
+        )}
       </div>
       {showBottomToolbar && (
         <BottomViewportToolbar 
