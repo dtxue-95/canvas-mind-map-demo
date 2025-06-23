@@ -58,6 +58,7 @@ export interface ReactMindMapProps {
    * 底部工具条自定义按钮（追加到末尾）
    */
   bottomToolbarCustomButtons?: ToolbarButtonConfig[];
+  getNodeStyle: (node: MindMapNode) => React.CSSProperties;
 }
 
 export default function ReactMindMap({
@@ -72,6 +73,7 @@ export default function ReactMindMap({
   onDataChange,
   topToolbarCustomButtons,
   bottomToolbarCustomButtons,
+  getNodeStyle,
 }: ReactMindMapProps) {
   const appContainerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -306,7 +308,7 @@ export default function ReactMindMap({
         />
       )}
       <div ref={canvasContainerRef} className="flex-grow w-full h-full relative overflow-hidden">
-        {canvasSize && <MindMapCanvas mindMapHookInstance={mindMapHook} />}
+        {canvasSize && <MindMapCanvas mindMapHookInstance={mindMapHook} getNodeStyle={getNodeStyle} />}
       </div>
       {showBottomToolbar && (
         <BottomViewportToolbar 

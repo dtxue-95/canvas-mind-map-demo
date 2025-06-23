@@ -148,6 +148,7 @@ export function calculateNodeDimensions(text: string): { width: number; height: 
  * @param isHighlighted 是否高亮
  * @param isExactMatch 是否精确匹配
  * @param currentSearchTerm 当前搜索词
+ * @param style 节点自定义样式（可选，优先级高于节点默认属性）
  */
 export function drawNode(
   ctx: CanvasRenderingContext2D,
@@ -156,110 +157,142 @@ export function drawNode(
   isEditing?: boolean,
   isHighlighted?: boolean,
   isExactMatch?: boolean,
-  currentSearchTerm?: string
+  currentSearchTerm?: string,
+  style?: React.CSSProperties
 ): void {
-  // 如果是精确匹配，使用淡黄色背景
+  // 匹配高亮样式优先级最高
+  let background = (style?.background as string) || (style?.backgroundColor as string) || node.color;
+  let textColor = style?.color || node.textColor;
+  let border = style?.border as string | undefined;
+  let borderRadius = typeof style?.borderRadius === 'number' ? style.borderRadius : NODE_BORDER_RADIUS;
+  let fontWeight = style?.fontWeight || 'normal';
+  let fontSize = typeof style?.fontSize === 'number' ? style.fontSize : FONT_SIZE;
+  let fontFamily = style?.fontFamily || FONT_FAMILY;
+  let boxShadow = style?.boxShadow as string | undefined;
+
+  // 精确匹配优先级最高
   if (isExactMatch) {
-    ctx.fillStyle = NODE_EXACT_MATCH_BACKGROUND_COLOR;
-  } else {
-    ctx.fillStyle = node.color;
+    background = NODE_EXACT_MATCH_BACKGROUND_COLOR;
+    textColor = node.textColor;
+    border = undefined;
+    fontWeight = 'bold';
+  } else if (isHighlighted) {
+    // 高亮匹配优先级高于自定义
+    border = `${NODE_HIGHLIGHT_BORDER_WIDTH}px solid ${NODE_HIGHLIGHT_BORDER_COLOR}`;
+    fontWeight = 'bold';
   }
-  
+
   ctx.save();
-  ctx.shadowColor = NODE_SHADOW_COLOR;
-  ctx.shadowBlur = NODE_SHADOW_BLUR;
-  ctx.shadowOffsetX = NODE_SHADOW_OFFSET_X;
-  ctx.shadowOffsetY = NODE_SHADOW_OFFSET_Y;
+
+  // 处理阴影
+  if (boxShadow) {
+    // 简单解析 boxShadow: "offsetX offsetY blur color"
+    const match = boxShadow.match(/(-?\d+)px\s+(-?\d+)px\s+(\d+)px\s+(.+)/);
+    if (match) {
+      ctx.shadowOffsetX = parseInt(match[1], 10);
+      ctx.shadowOffsetY = parseInt(match[2], 10);
+      ctx.shadowBlur = parseInt(match[3], 10);
+      ctx.shadowColor = match[4];
+    }
+  } else {
+    ctx.shadowColor = NODE_SHADOW_COLOR;
+    ctx.shadowBlur = NODE_SHADOW_BLUR;
+    ctx.shadowOffsetX = NODE_SHADOW_OFFSET_X;
+    ctx.shadowOffsetY = NODE_SHADOW_OFFSET_Y;
+  }
 
   // 绘制圆角矩形路径
   ctx.beginPath();
-  ctx.moveTo(node.position.x + NODE_BORDER_RADIUS, node.position.y);
-  ctx.lineTo(node.position.x + node.width - NODE_BORDER_RADIUS, node.position.y);
-  ctx.quadraticCurveTo(node.position.x + node.width, node.position.y, node.position.x + node.width, node.position.y + NODE_BORDER_RADIUS);
-  ctx.lineTo(node.position.x + node.width, node.position.y + node.height - NODE_BORDER_RADIUS);
-  ctx.quadraticCurveTo(node.position.x + node.width, node.position.y + node.height, node.position.x + node.width - NODE_BORDER_RADIUS, node.position.y + node.height);
-  ctx.lineTo(node.position.x + NODE_BORDER_RADIUS, node.position.y + node.height);
-  ctx.quadraticCurveTo(node.position.x, node.position.y + node.height, node.position.x, node.position.y + node.height - NODE_BORDER_RADIUS);
-  ctx.lineTo(node.position.x, node.position.y + NODE_BORDER_RADIUS);
-  ctx.quadraticCurveTo(node.position.x, node.position.y, node.position.x + NODE_BORDER_RADIUS, node.position.y);
+  ctx.moveTo(node.position.x + Number(borderRadius), node.position.y);
+  ctx.lineTo(node.position.x + node.width - Number(borderRadius), node.position.y);
+  ctx.quadraticCurveTo(node.position.x + node.width, node.position.y, node.position.x + node.width, node.position.y + Number(borderRadius));
+  ctx.lineTo(node.position.x + node.width, node.position.y + node.height - Number(borderRadius));
+  ctx.quadraticCurveTo(node.position.x + node.width, node.position.y + node.height, node.position.x + node.width - Number(borderRadius), node.position.y + node.height);
+  ctx.lineTo(node.position.x + Number(borderRadius), node.position.y + node.height);
+  ctx.quadraticCurveTo(node.position.x, node.position.y + node.height, node.position.x, node.position.y + node.height - Number(borderRadius));
+  ctx.lineTo(node.position.x, node.position.y + Number(borderRadius));
+  ctx.quadraticCurveTo(node.position.x, node.position.y, node.position.x + Number(borderRadius), node.position.y);
   ctx.closePath();
-  
-  ctx.fill();
-  ctx.restore(); 
 
-  // 绘制高亮边框
-  if (isHighlighted) {
+  // 填充背景色
+  ctx.fillStyle = background;
+  ctx.fill();
+  ctx.restore();
+
+  // 绘制边框
+  if (border) {
+    // 解析 border: "2px solid #00bcd4"
+    const match = border.match(/(\d+)px\s+\w+\s+(.+)/);
+    if (match) {
+      ctx.save();
+      ctx.strokeStyle = match[2];
+      ctx.lineWidth = parseInt(match[1], 10) / ctx.getTransform().a;
+      ctx.stroke();
+      ctx.restore();
+    }
+  } else if (isHighlighted) {
+    ctx.save();
     ctx.strokeStyle = NODE_HIGHLIGHT_BORDER_COLOR;
     ctx.lineWidth = NODE_HIGHLIGHT_BORDER_WIDTH / ctx.getTransform().a;
     ctx.stroke();
-  }
-
-  // 绘制选中边框
-  if (isSelected) {
+    ctx.restore();
+  } else if (isSelected) {
+    ctx.save();
     ctx.strokeStyle = NODE_SELECTED_BORDER_COLOR;
     ctx.lineWidth = NODE_SELECTED_BORDER_WIDTH / ctx.getTransform().a;
     ctx.stroke();
+    ctx.restore();
   }
 
-  // 绘制文本（非编辑状态）
-  if (!isEditing) {
-    ctx.font = `${FONT_SIZE}px ${FONT_FAMILY}`;
-    ctx.textBaseline = 'middle';
-
-    const maxTextWidthInsideNode = node.width - TEXT_PADDING_X * 2;
-    const linesToRender = splitTextIntoLines(node.text, maxTextWidthInsideNode, ctx);
-    
-    const lineHeight = FONT_SIZE * 1.2;
-    const totalTextHeight = linesToRender.length * lineHeight;
-    let startY = (node.position.y + node.height / 2) - (totalTextHeight / 2) + (lineHeight / 2); // 居中块然后添加半行高
-
-    for (let i = 0; i < linesToRender.length; i++) {
-      const lineText = linesToRender[i];
-      const lineY = startY + i * lineHeight;
-      
-      // 简单裁剪：不绘制会开始得太靠下的行
-      if (lineY - lineHeight/2 > node.position.y + node.height - TEXT_PADDING_Y) {
-        break; 
-      }
-      
-      // 高亮搜索匹配的文本
-      if (isHighlighted && currentSearchTerm && currentSearchTerm.trim().length > 0) {
-        ctx.textAlign = 'left';
-        const searchTermLower = currentSearchTerm.toLowerCase().trim();
-        const lineTextLower = lineText.toLowerCase();
-        
-        const totalLineWidth = ctx.measureText(lineText).width;
-        let currentRenderX = node.position.x + (node.width - totalLineWidth) / 2;
-
-        let lastIndex = 0;
-        while(lastIndex < lineText.length) {
-            const matchIndex = lineTextLower.indexOf(searchTermLower, lastIndex);
-            if (matchIndex !== -1) {
-                if (matchIndex > lastIndex) {
-                    const preText = lineText.substring(lastIndex, matchIndex);
-                    ctx.fillStyle = node.textColor;
-                    ctx.fillText(preText, currentRenderX, lineY);
-                    currentRenderX += ctx.measureText(preText).width;
-                }
-                const matchedText = lineText.substring(matchIndex, matchIndex + searchTermLower.length);
-                ctx.fillStyle = NODE_SEARCH_TEXT_MATCH_COLOR;
-                ctx.fillText(matchedText, currentRenderX, lineY);
-                currentRenderX += ctx.measureText(matchedText).width;
-                lastIndex = matchIndex + searchTermLower.length;
-            } else {
-                const remainingText = lineText.substring(lastIndex);
-                ctx.fillStyle = node.textColor;
-                ctx.fillText(remainingText, currentRenderX, lineY);
-                break;
-            }
+  // 绘制文本
+  ctx.save();
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const textX = node.position.x + node.width / 2;
+  const textY = node.position.y + node.height / 2;
+  const maxTextWidth = node.width - TEXT_PADDING_X * 2;
+  const lines = splitTextIntoLines(node.text, maxTextWidth, ctx);
+  const lineHeight = Number(fontSize) * 1.2;
+  const totalTextHeight = lines.length * lineHeight;
+  lines.forEach((line, i) => {
+    const lineY = textY - totalTextHeight / 2 + i * lineHeight + lineHeight / 2;
+    if ((isHighlighted || isExactMatch) && currentSearchTerm && currentSearchTerm.trim().length > 0) {
+      // 匹配时，匹配到的文字标红
+      ctx.textAlign = 'left';
+      const searchTermLower = currentSearchTerm.toLowerCase().trim();
+      const lineTextLower = line.toLowerCase();
+      const totalLineWidth = ctx.measureText(line).width;
+      let currentRenderX = node.position.x + (node.width - totalLineWidth) / 2;
+      let lastIndex = 0;
+      while (lastIndex < line.length) {
+        const matchIndex = lineTextLower.indexOf(searchTermLower, lastIndex);
+        if (matchIndex !== -1) {
+          if (matchIndex > lastIndex) {
+            const preText = line.substring(lastIndex, matchIndex);
+            ctx.fillStyle = textColor;
+            ctx.fillText(preText, currentRenderX, lineY);
+            currentRenderX += ctx.measureText(preText).width;
+          }
+          const matchedText = line.substring(matchIndex, matchIndex + searchTermLower.length);
+          ctx.fillStyle = NODE_SEARCH_TEXT_MATCH_COLOR;
+          ctx.fillText(matchedText, currentRenderX, lineY);
+          currentRenderX += ctx.measureText(matchedText).width;
+          lastIndex = matchIndex + searchTermLower.length;
+        } else {
+          const remainingText = line.substring(lastIndex);
+          ctx.fillStyle = textColor;
+          ctx.fillText(remainingText, currentRenderX, lineY);
+          break;
         }
-      } else {
-        ctx.textAlign = 'center';
-        ctx.fillStyle = node.textColor;
-        ctx.fillText(lineText, node.position.x + node.width / 2, lineY);
       }
+    } else {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = textColor;
+      ctx.fillText(line, textX, lineY);
     }
-  }
+  });
+  ctx.restore();
 }
 
 /**

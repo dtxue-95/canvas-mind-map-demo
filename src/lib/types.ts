@@ -31,6 +31,7 @@ export interface MindMapNode {
   children: MindMapNode[];    // 子节点数组（实际节点对象）
   isCollapsed: boolean;          // 是否折叠状态
   childrenCount?: number;        // 子节点数量（折叠时显示）
+  style?: React.CSSProperties;   // 节点自定义样式（可选）
 }
 
 // 视口状态
@@ -160,5 +161,14 @@ export interface BottomToolbarProps {
   onToggleFullscreen: () => void;        // 切换全屏回调
   onToggleSearchWidget: () => void;      // 切换搜索组件回调
   onToggleReadOnly: () => void;          // 切换只读模式回调
+}
+
+export interface ReactMindMapProps {
+  // ...原有props...
+  /**
+   * 获取节点自定义样式的回调。可用于动态设置每个节点的 style。
+   * (node, state) => React.CSSProperties
+   */
+  getNodeStyle?: (node: MindMapNode, state: MindMapState) => React.CSSProperties;
 }
 

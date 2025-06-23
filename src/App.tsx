@@ -79,11 +79,18 @@ function App() {
     // 顶部工具条追加自定义按钮
     topToolbarCustomButtons: [customSaveButton],
     readOnly,
+    getNodeStyle: (node: MindMapNode) => {
+      if (node.id === '1') return { background: 'blue', color: 'gray', fontWeight: 'bold' };
+      if (node.text.includes('测试')) return { background: '#e0f7fa', border: '2px solid #00bcd4' };
+      return {}
+    },
   };
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
-      <ReactMindMap {...mindMapProps} />
+      <ReactMindMap {...mindMapProps}
+       
+      />
     </div>
   );
 }

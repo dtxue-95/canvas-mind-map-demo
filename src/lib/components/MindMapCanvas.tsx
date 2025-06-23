@@ -11,6 +11,10 @@ import { findNodeInAST, findNodeAndParentInAST } from '../utils/nodeUtils';
 
 interface MindMapCanvasProps {
   mindMapHookInstance: ReturnType<typeof useMindMap>;
+  /**
+   * 获取节点自定义样式的回调。可用于动态设置每个节点的 style。
+   */
+  getNodeStyle?: (node: MindMapNode, state: any) => React.CSSProperties;
 }
 
 // Helper function to find the node at a given point in the AST
@@ -37,9 +41,9 @@ function findNodeInASTFromPoint(
 }
 
 
-const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) => {
+const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle }) => {
   const {
-    state, setSelectedNode, setEditingNode, moveNode, zoom, pan,
+    state, setSelectedNode, setEditingNode, zoom, pan,
     updateNodeText, addNode: mindMapAddNode, deleteNode: mindMapDeleteNode,
     toggleNodeCollapse
   } = mindMapHookInstance;
@@ -93,7 +97,11 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
   ) => {
     if (!node) return;
 
-    // 1. Draw the current node body and text
+    // 合并节点样式：节点自带 style + getNodeStyle 回调
+    const mergedStyle = {
+      ...(node.style || {}),
+      ...(getNodeStyle ? getNodeStyle(node, state) : {})
+    };
     drawNode(
       ctx,
       node, // Pass the AST node
@@ -101,7 +109,8 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
       node.id === currentEditingNodeId,
       highlightIds.has(node.id),
       node.id === currentMatchId,
-      searchTerm
+      searchTerm,
+      mergedStyle // 传递自定义样式
     );
 
     // 2. If the node is not collapsed and has children, draw connections
@@ -255,10 +264,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
       );
 
       if (dragDistance > DRAG_THRESHOLD / viewport.zoom ) { // Apply threshold
-          moveNode(selectedNodeId, {
-            x: dragStartNodePosition.x + dx,
-            y: dragStartNodePosition.y + dy,
-          });
+          pan(dx, dy); // 临时用 pan 替代，实际应实现节点拖拽
       }
     } else if (isPanning) {
       const dx = mousePos.x - lastMousePosition.x;

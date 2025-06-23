@@ -568,3 +568,67 @@
     - 自定义按钮禁用状态与全局只读/编辑模式完全同步，无需手动维护。
     - 支持更复杂的动态禁用逻辑（如根据选中节点、权限等）。
     - 体验与内置按钮一致，声明式、易扩展。
+
+### 10.12 节点自定义样式与搜索高亮优先级优化
+- ✅ **背景**: 需求支持每个节点自定义 style，但在搜索高亮/精确匹配时，需保证高亮样式优先于自定义样式，且匹配文字应标红。
+- ✅ **优化内容**:
+    - drawNode 支持 style 参数，解析 background、color、border、borderRadius、fontWeight、fontSize、fontFamily、boxShadow 等常用样式。
+    - 搜索高亮/精确匹配时，背景色、边框、字体加粗等高亮样式优先于自定义 style。
+    - 匹配到的文字自动标红（NODE_SEARCH_TEXT_MATCH_COLOR），其余部分按自定义 color 或默认色渲染。
+    - 支持多行文本、多个匹配段，兼容所有自定义样式。
+    - Canvas 节点样式只能通过 JS 传递 style/getNodeStyle 控制，不能直接用 CSS。
+    - 如需极致自定义，建议用 getNodeStyle 实现"主题"或"按需样式"。
+- ✅ **自定义样式用法示例**:
+    ```js
+    // 方式一：节点数据自带 style
+    {
+      id: '1',
+      text: '自定义节点',
+      style: { background: 'pink', color: 'blue', border: '2px solid #00bcd4', borderRadius: 12, fontWeight: 'bold', fontSize: 20 }
+    }
+    // 方式二：全局动态样式回调
+    <ReactMindMap
+      getNodeStyle={(node, state) => {
+        if (node.id === '1') return { background: 'gold', color: 'red', fontWeight: 'bold', fontSize: 22 };
+        if (node.text.includes('测试')) return { background: '#e0f7fa', border: '2px solid #00bcd4', borderRadius: 16 };
+        return {};
+      }}
+    />
+    ```
+- ✅ **优势**:
+    - 支持声明式、动态定制每个节点的视觉风格。
+    - 搜索高亮体验与主流思维导图工具一致，匹配文字始终标红。
+    - 兼容多种 CSS 风格，优先级清晰，易于扩展。
+
+### 10.13 getNodeStyle 支持"伪 CSS 主题"能力
+- ✅ **背景**: Canvas 节点无法直接用 CSS 控制样式，但通过 getNodeStyle 回调可以实现类似 CSS 选择器/主题的能力。
+- ✅ **实现思路**:
+    - getNodeStyle 接收每个节点和全局 state，可用 JS 条件判断节点的 id、type、className、text、level 等属性，返回类似 CSS 的样式对象。
+    - 支持模拟 id、class、属性、层级、主题切换等"选择器"效果。
+    - 所有样式最终会被 drawNode 应用到 Canvas 上，达到"主题"效果。
+- ✅ **典型用法示例**:
+    ```js
+    // 1. 按节点类型/自定义 className 实现主题
+    getNodeStyle={(node) => {
+      if (node.type === 'root') return { background: '#222', color: '#fff', fontWeight: 'bold', fontSize: 22 };
+      if (node.type === 'important') return { background: '#fffbe6', color: '#d48806', border: '2px solid #faad14' };
+      if (node.className === 'danger') return { background: '#fff1f0', color: '#cf1322', border: '2px solid #cf1322' };
+      return {};
+    }}
+
+    // 2. 按 id、text、层级等实现"选择器"效果
+    getNodeStyle={(node) => {
+      if (node.id === 'special-node') return { background: 'purple', color: 'white' };
+      if (node.text.includes('重要')) return { color: 'red', fontWeight: 'bold' };
+      if (node.level === 1) return { background: '#e6f7ff' };
+      return {};
+    }}
+
+    // 3. 支持"主题切换"
+    const theme = 'dark';
+    getNodeStyle={(node) => theme === 'dark' ? { background: '#222', color: '#fff' } : { background: '#fff', color: '#222' }}
+    ```
+- ✅ **优势**:
+    - getNodeStyle 就是 JS 版的"节点样式选择器"，可模拟大部分 CSS 主题/选择器能力。
+    - 支持声明式、动态、全局主题、复杂条件组合，极大提升了样式定制能力。
+    - 兼容所有 Canvas 支持的视觉属性，且与搜索高亮等内置样式优先级兼容。
