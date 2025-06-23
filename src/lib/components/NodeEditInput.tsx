@@ -55,7 +55,7 @@ const NodeEditInput: React.FC<NodeEditInputProps> = ({ node, viewport, onSave, o
       onCancel();
     }
   };
-  
+
   // Auto-resize textarea height
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -77,13 +77,13 @@ const NodeEditInput: React.FC<NodeEditInputProps> = ({ node, viewport, onSave, o
   return (
     <textarea
       ref={textareaRef}
-      value={text}
+        value={text}
       onChange={(e) => setText(e.target.value)}
-      onKeyDown={handleKeyDown}
+        onKeyDown={handleKeyDown}
       onBlur={handleSave} // Save on blur
       style={style}
-      aria-label="编辑节点文本"
-    />
+        aria-label="编辑节点文本"
+      />
   );
 };
 

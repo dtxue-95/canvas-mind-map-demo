@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import {
+import { 
   ReactMindMap,
   type ReactMindMapProps,
   type MindMapNodeAST,
 } from './lib';
-
+      
 // Let the component handle the transformation from raw data to MindMapNodeAST
 const rawInitialData =  {
   id: '1',
@@ -16,7 +16,7 @@ const rawInitialData =  {
       children: [
         { id: '3', text: '用户需求调研' },
         { id: '4', text: '功能需求定义' },
-        { 
+      {
           id:'5', 
           text: '技术可行性分析', 
           children: [
@@ -44,8 +44,8 @@ const rawInitialData =  {
         { id: '15', text: '集成测试' },
         { id: '16', text: '用户验收测试' },
       ]
-    },
-    {
+      },
+      {
       id: '17',
       text: '第四阶段：上线维护',
       children: [

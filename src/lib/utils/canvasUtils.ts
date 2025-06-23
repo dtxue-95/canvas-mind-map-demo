@@ -1,4 +1,4 @@
-import { MindMapNode, Point, Viewport } from '../types';
+import { MindMapNodeAST as MindMapNode, Point, Viewport } from '../types';
 import { 
   FONT_FAMILY, FONT_SIZE, NODE_BORDER_RADIUS, 
   TEXT_PADDING_X, TEXT_PADDING_Y, CONNECTION_LINE_COLOR, CONNECTION_LINE_WIDTH,
@@ -32,25 +32,13 @@ function getOffscreenContext(): CanvasRenderingContext2D {
 }
 
 /**
- * 测量文本并计算宽度（主要用于createNode的初始估算）
- * 布局引擎将使用 calculateNodeDimensions 进行更准确的尺寸计算
- */
-export function measureTextAndCalculateWidth(text: string): number {
-  const ctx = getOffscreenContext();
-  const metrics = ctx.measureText(text.trim() || " "); 
-  let width = metrics.width + TEXT_PADDING_X * 2;
-  width = Math.max(MIN_NODE_WIDTH, Math.min(width, MAX_NODE_WIDTH));
-  return width;
-}
-
-/**
  * 将文本分割成多行以适应指定宽度
  * @param text 要分割的文本
  * @param maxWidth 最大宽度
  * @param ctx Canvas上下文（期望字体已设置）
  * @returns 分割后的文本行数组
  */
-export function splitTextIntoLines(
+function splitTextIntoLines(
   text: string, 
   maxWidth: number, 
   ctx: CanvasRenderingContext2D // 期望上下文已设置字体

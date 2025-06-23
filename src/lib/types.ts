@@ -53,7 +53,7 @@ export interface ToolbarButtonConfig {
   visible?: boolean; // Default is true if not specified
 }
 
-// These are now just payload shapes, not 'command' args
+// These are payload shapes
 export interface AddNodePayload {
   text: string;
   parentId: string | null;
@@ -63,18 +63,19 @@ export interface DeleteNodePayload {
   nodeId: string;
 }
 
-// 添加节点命令结果
+// These result types are no longer used by any reducer or command
+/*
 export interface AddNodeCommandResult {
-  rootNode: MindMapNodeAST | null; // 新的AST根节点
-  newNodeId: string;             // 新创建的节点ID
+  rootNode: MindMapNodeAST | null;
+  newNodeId: string;
 }
 
-// 删除节点命令结果
 export interface DeleteNodeCommandResult {
-  rootNode: MindMapNodeAST | null; // 新的AST根节点
-  newSelectedNodeId: string | null; // 新的选中节点ID
-  deletedNodeIds: Set<string>;   // 已删除的节点ID集合
+  rootNode: MindMapNodeAST | null;
+  newSelectedNodeId: string | null;
+  deletedNodeIds: Set<string>;
 }
+*/
 
 // 思维导图状态管理动作类型
 export type MindMapAction =
