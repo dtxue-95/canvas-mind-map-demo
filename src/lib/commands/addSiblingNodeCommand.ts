@@ -1,19 +1,20 @@
 import { FaPlus } from 'react-icons/fa';
 import { Command } from '../types';
-import { MindMapState } from '../hooks/useMindMap';
+import { MindMapState } from '../types';
 import { findNodeAndParentInAST } from '../utils/nodeUtils';
 import { NEW_NODE_TEXT } from '../constants';
 
+// 添加兄弟节点命令，id 必须为短横线风格并与工具条 key 保持一致
 export const addSiblingNodeCommand: Command = {
-  id: 'add-sibling-node',
-  label: '添加节点',
-  title: '添加兄弟节点 (Insert)',
-  icon: FaPlus,
+  id: 'add-sibling-node', // 命令唯一标识符
+  label: '添加节点', // 按钮文本
+  title: '添加兄弟节点 (Insert)', // 按钮提示
+  icon: FaPlus, // 图标
   canExecute: (state: MindMapState) => {
     if (state.isReadOnly || !state.selectedNodeId || !state.rootNode) {
       return false;
     }
-    // Cannot add a sibling to the root node
+    // 根节点不能添加兄弟节点
     if (state.selectedNodeId === state.rootNode.id) {
       return false;
     }

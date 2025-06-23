@@ -1,4 +1,4 @@
-import { MindMapNodeAST as MindMapNode, Point, Viewport } from '../types';
+import { MindMapNode as MindMapNode, Point, Viewport } from '../types';
 import { 
   FONT_FAMILY, FONT_SIZE, NODE_BORDER_RADIUS, 
   TEXT_PADDING_X, TEXT_PADDING_Y, CONNECTION_LINE_COLOR, CONNECTION_LINE_WIDTH,

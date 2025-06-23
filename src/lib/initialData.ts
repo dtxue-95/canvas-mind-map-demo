@@ -1,6 +1,6 @@
 /**
  * 这是一个原始数据对象，只包含最核心的字段：id, text, 和 children。
- * 它将被 `transformToMindMapNode` 函数处理，转换为项目所需的完整 MindMapNodeAST 格式。
+ * 它将被 `transformToMindMapNode` 函数处理，转换为项目所需的完整 MindMapNode 格式。
  */
 export const rawInitialData = {
   id: '1',

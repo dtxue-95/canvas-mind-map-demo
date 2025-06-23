@@ -1,6 +1,5 @@
 import { FaLock, FaLockOpen } from 'react-icons/fa';
 import { Command, MindMapState } from '../types';
-import React from 'react';
 
 export const toggleReadOnlyCommand: Command = {
   id: 'toggle-read-only',
@@ -10,7 +9,7 @@ export const toggleReadOnlyCommand: Command = {
   canExecute: () => {
     return true; // Always executable
   },
-  execute: (state: MindMapState, handlers: { toggleReadOnlyMode: () => void }) => {
+  execute: (_state: MindMapState, handlers: { toggleReadOnlyMode: () => void }) => {
     handlers.toggleReadOnlyMode();
   },
   getDynamicProps: (state: MindMapState) => ({

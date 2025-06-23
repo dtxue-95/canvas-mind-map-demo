@@ -9,7 +9,7 @@ export const centerViewCommand: Command = {
   canExecute: (state: MindMapState) => {
     return !!state.rootNode;
   },
-  execute: (state: MindMapState, handlers: { centerView: () => void }) => {
+  execute: (_state: MindMapState, handlers: { centerView: () => void }) => {
     handlers.centerView();
   },
 }; 

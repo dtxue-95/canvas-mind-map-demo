@@ -9,7 +9,7 @@ export const redoCommand: Command = {
   canExecute: (state: MindMapState, canRedo: boolean) => {
     return !state.isReadOnly && canRedo;
   },
-  execute: (state: MindMapState, handlers: { redo: () => void }) => {
+  execute: (_state: MindMapState, handlers: { redo: () => void }) => {
     handlers.redo();
   },
 }; 

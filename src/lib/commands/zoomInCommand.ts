@@ -1,5 +1,5 @@
 import { FiZoomIn } from 'react-icons/fi';
-import { Command, MindMapState, Point } from '../types';
+import { Command, MindMapState } from '../types';
 
 export const zoomInCommand: Command = {
   id: 'zoom-in',
@@ -9,7 +9,7 @@ export const zoomInCommand: Command = {
   canExecute: () => {
     return true;
   },
-  execute: (state: MindMapState, handlers: { zoomIn: () => void }) => {
+  execute: (_state: MindMapState, handlers: { zoomIn: () => void }) => {
     handlers.zoomIn();
   },
 }; 

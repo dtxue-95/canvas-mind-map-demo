@@ -9,7 +9,7 @@ export const fitViewCommand: Command = {
   canExecute: (state: MindMapState) => {
     return !!state.rootNode;
   },
-  execute: (state: MindMapState, handlers: { fitView: () => void }) => {
+  execute: (_state: MindMapState, handlers: { fitView: () => void }) => {
     handlers.fitView();
   },
 }; 

@@ -8,7 +8,7 @@ import { MindMapCanvas } from './components/MindMapCanvas';
 import { BottomViewportToolbar } from './components/BottomViewportToolbar';
 import { SearchWidget } from './components/SearchWidget';
 import { useMindMap } from './hooks/useMindMap';
-import { CommandDescriptor, MindMapNodeAST, Point } from './types';
+import { CommandDescriptor, MindMapNode, Point } from './types';
 import { NEW_NODE_TEXT } from './constants';
 import { findNodeInAST, findNodeAndParentInAST } from './utils/nodeUtils';
 import { worldToScreen } from './utils/canvasUtils';
@@ -139,7 +139,7 @@ EOT
 # 2. Update the main hook: src/lib/hooks/useMindMap.ts
 cat << 'EOT' > src/lib/hooks/useMindMap.ts
 import React, { useReducer, useCallback, useEffect } from 'react';
-import { MindMapNodeAST, Point, Viewport, MindMapState, MindMapAction, AddNodeCommandArgs, DeleteNodeCommandArgs } from '../types';
+import { MindMapNode, Point, Viewport, MindMapState, MindMapAction, AddNodeCommandArgs, DeleteNodeCommandArgs } from '../types';
 import { INITIAL_ZOOM, MIN_ZOOM, MAX_ZOOM, ZOOM_SENSITIVITY, CHILD_H_SPACING } from '../constants';
 import { createNode, countAllDescendants, deepCopyAST, findNodeInAST, findNodeAndParentInAST, transformToMindMapNode } from '../utils/nodeUtils';
 import { applyLayout } from '../layoutEngine';
@@ -185,7 +185,7 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
             let maxMatchCount = 0;
             if (searchTerm) {
                 const countOccurrences = (str: string, sub: string) => (str.toLowerCase().match(new RegExp(sub.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
-                function findPathToNode(node: MindMapNodeAST, targetId: string, path: string[] = []): string[] | null {
+                function findPathToNode(node: MindMapNode, targetId: string, path: string[] = []): string[] | null {
                     path.push(node.id);
                     if (node.id === targetId) return path;
                     for (const child of node.children) {
@@ -194,7 +194,7 @@ function mindMapReducer(state: MindMapState, action: MindMapAction): MindMapStat
                     }
                     return null;
                 }
-                function traverseAndHighlight(node: MindMapNodeAST | null) {
+                function traverseAndHighlight(node: MindMapNode | null) {
                     if (!node) return;
                     const matchCount = countOccurrences(node.text, searchTerm);
                     if (matchCount > 0) {
@@ -256,7 +256,7 @@ export function useMindMap(canvasSize?: { width: number; height: number } | null
   const fitView = useCallback((centerOnly = false) => {
     if (!state.rootNode || !canvasSize) return;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    function getBoundsRecursive(node: MindMapNodeAST) {
+    function getBoundsRecursive(node: MindMapNode) {
         minX = Math.min(minX, node.position.x);
         minY = Math.min(minY, node.position.y);
         maxX = Math.max(maxX, node.position.x + node.width);

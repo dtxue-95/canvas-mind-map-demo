@@ -4,7 +4,7 @@ import MindMapCanvas from './components/MindMapCanvas';
 import BottomViewportToolbar from './components/BottomViewportToolbar';
 import SearchWidget from './components/SearchWidget';
 import { useMindMap } from './hooks/useMindMap';
-import { MindMapNodeAST, Command, Point, ToolbarButtonConfig } from './types';
+import { MindMapNode, Command, Point, ToolbarButtonConfig } from './types';
 import { findNodeInAST } from './utils/nodeUtils';
 import { worldToScreen } from './utils/canvasUtils';
 import { getDefaultTopToolbarConfig, getDefaultBottomToolbarConfig } from './defaultConfig';
@@ -41,27 +41,37 @@ const commandRegistry: Map<string, Command> = new Map([
 ]);
 
 export interface ReactMindMapProps {
-  initialData: MindMapNodeAST;
+  initialData: MindMapNode;
   width?: string;
   height?: string;
-  topToolbarConfig?: string[];
-  bottomToolbarConfig?: string[];
+  topToolbarKeys?: string[];
+  bottomToolbarKeys?: string[];
   showTopToolbar?: boolean;
   showBottomToolbar?: boolean;
   readOnly?: boolean;
-  onDataChange?: (data: MindMapNodeAST) => void;
+  onDataChange?: (data: MindMapNode) => void;
+  /**
+   * 顶部工具条自定义按钮（追加到末尾）
+   */
+  topToolbarCustomButtons?: ToolbarButtonConfig[];
+  /**
+   * 底部工具条自定义按钮（追加到末尾）
+   */
+  bottomToolbarCustomButtons?: ToolbarButtonConfig[];
 }
 
 export default function ReactMindMap({
   initialData,
   width = '100vw',
   height = '100vh',
-  topToolbarConfig: topToolbarProp,
-  bottomToolbarConfig: bottomToolbarProp,
+  topToolbarKeys,
+  bottomToolbarKeys,
   showTopToolbar = true,
   showBottomToolbar = true,
   readOnly = true,
   onDataChange,
+  topToolbarCustomButtons,
+  bottomToolbarCustomButtons,
 }: ReactMindMapProps) {
   const appContainerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -180,8 +190,8 @@ export default function ReactMindMap({
     toggleFullscreen: handleToggleFullscreen,
   };
   
-  const topToolbarConfig = topToolbarProp ?? getDefaultTopToolbarConfig();
-  const bottomToolbarConfig = bottomToolbarProp ?? getDefaultBottomToolbarConfig();
+  const topToolbarConfig = topToolbarKeys ?? getDefaultTopToolbarConfig();
+  const bottomToolbarConfig = bottomToolbarKeys ?? getDefaultBottomToolbarConfig();
 
   const buildToolbarCommands = (commandIds: string[]): ToolbarButtonConfig[] => {
     return commandIds.map(id => {
@@ -190,14 +200,11 @@ export default function ReactMindMap({
         console.warn(`Command with id "${id}" not found in registry.`);
         return null;
       }
-  
       let disabled = false;
       let extraArgs: any[] = [];
       if (id === 'undo') extraArgs = [canUndo];
       if (id === 'redo') extraArgs = [canRedo];
-  
       disabled = !command.canExecute(state, ...extraArgs);
-  
       const button: ToolbarButtonConfig = {
         id: command.id,
         label: command.label,
@@ -206,24 +213,39 @@ export default function ReactMindMap({
         action: () => command.execute(state, handlers),
         disabled: disabled,
       };
-      
-      // Handle dynamic properties for specific commands like toggle-read-only
       if (command.getDynamicProps) {
         const dynamicProps = command.getDynamicProps(state);
         Object.assign(button, dynamicProps);
       }
-      
       if (command.id === 'toggle-fullscreen') {
         button.icon = isFullscreen ? FiMinimize : FiMaximize;
         button.title = isFullscreen ? '退出全屏' : '进入全屏';
       }
-      
       return button;
     }).filter((c): c is ToolbarButtonConfig => c !== null);
   };
   
-  const topToolbarCommands = useMemo(() => buildToolbarCommands(topToolbarConfig), [state, topToolbarConfig, canUndo, canRedo, handlers]);
-  const bottomToolbarCommands = useMemo(() => buildToolbarCommands(bottomToolbarConfig), [state, bottomToolbarConfig, handlers]);
+  const mergeCustomButtons = (built: ToolbarButtonConfig[], custom?: ToolbarButtonConfig[]) => {
+    if (!custom) return built;
+    return [
+      ...built,
+      ...custom.map(btn => {
+        if (typeof btn.disabled === 'function') {
+          return { ...btn, disabled: (btn.disabled as (state: typeof state) => boolean)(state) };
+        }
+        return btn;
+      })
+    ];
+  };
+
+  const topToolbarCommands = useMemo(
+    () => mergeCustomButtons(buildToolbarCommands(topToolbarConfig), topToolbarCustomButtons),
+    [state, topToolbarConfig, canUndo, canRedo, handlers, topToolbarCustomButtons]
+  );
+  const bottomToolbarCommands = useMemo(
+    () => mergeCustomButtons(buildToolbarCommands(bottomToolbarConfig), bottomToolbarCustomButtons),
+    [state, bottomToolbarConfig, handlers, bottomToolbarCustomButtons]
+  );
   
   const updateTopHandlePosition = (newPos: { x: number; y: number }) => {
     const newY = Math.max(0, Math.min(newPos.y, bottomHandlePosition.y - 64 - 10));
@@ -292,8 +314,6 @@ export default function ReactMindMap({
           zoomPercentage={zoomPercentage}
           handlePosition={bottomHandlePosition}
           onPositionChange={updateBottomHandlePosition}
-          onToggleSearch={() => setIsSearchVisible(!isSearchVisible)}
-          onToggleFullscreen={handleToggleFullscreen}
         />
       )}
       {isSearchVisible && (

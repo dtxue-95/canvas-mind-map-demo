@@ -7,7 +7,7 @@ sed -i '' 's/import { MindMapCanvas } from/import MindMapCanvas from/' src/lib/R
 sed -i '' 's/import { BottomViewportToolbar } from/import BottomViewportToolbar from/' src/lib/ReactMindMap.tsx
 sed -i '' 's/import { SearchWidget } from/import SearchWidget from/' src/lib/ReactMindMap.tsx
 # Remove unused imports
-sed -i '' "/import { CommandDescriptor, MindMapNodeAST, Point } from/s/, MindMapNodeAST//g" src/lib/ReactMindMap.tsx
+sed -i '' "/import { CommandDescriptor, MindMapNode, Point } from/s/, MindMapNode//g" src/lib/ReactMindMap.tsx
 sed -i '' "/import { findNodeInAST, findNodeAndParentInAST } from/s/, findNodeAndParentInAST//g" src/lib/ReactMindMap.tsx
 sed -i '' "/const { state, addNode, deleteNode, zoom, setViewport, setSearchTerm, toggleReadOnlyMode, pan, fitView } = mindMapHook;/s/, setViewport//g" src/lib/ReactMindMap.tsx
 sed -i '' "/const parentHeight = canvasContainerRef.current?.clientHeight ?? window.innerHeight;/d" src/lib/ReactMindMap.tsx
@@ -18,19 +18,19 @@ sed -i '' "/import React from 'react';/d" src/App.tsx
 
 # 3. Fix unused imports in hooks/useMindMap.ts
 sed -i '' "/import React, { useReducer, useCallback, useEffect } from 'react';/s/React, //" src/lib/hooks/useMindMap.ts
-sed -i '' "/import { MindMapNodeAST, Point, Viewport, MindMapState, MindMapAction, AddNodeCommandArgs, DeleteNodeCommandArgs } from/s/, AddNodeCommandArgs//g" src/lib/hooks/useMindMap.ts
-sed -i '' "/import { MindMapNodeAST, Point, Viewport, MindMapState, MindMapAction, DeleteNodeCommandArgs } from/s/, DeleteNodeCommandArgs//g" src/lib/hooks/useMindMap.ts
+sed -i '' "/import { MindMapNode, Point, Viewport, MindMapState, MindMapAction, AddNodeCommandArgs, DeleteNodeCommandArgs } from/s/, AddNodeCommandArgs//g" src/lib/hooks/useMindMap.ts
+sed -i '' "/import { MindMapNode, Point, Viewport, MindMapState, MindMapAction, DeleteNodeCommandArgs } from/s/, DeleteNodeCommandArgs//g" src/lib/hooks/useMindMap.ts
 sed -i '' "/import { createNode, countAllDescendants, deepCopyAST, findNodeInAST, findNodeAndParentInAST, transformToMindMapNode } from/s/createNode, //" src/lib/hooks/useMindMap.ts
 sed -i '' "/import { countAllDescendants, deepCopyAST, findNodeInAST, findNodeAndParentInAST, transformToMindMapNode } from/s/, findNodeAndParentInAST//g" src/lib/hooks/useMindMap.ts
 
 
 # 4. Fix unused imports in components
-sed -i '' "/import { MindMapNodeAST, Viewport } from/d" src/lib/components/NodeEditInput.tsx
+sed -i '' "/import { MindMapNode, Viewport } from/d" src/lib/components/NodeEditInput.tsx
 sed -i '' "/import { FONT_SIZE, FONT_FAMILY, TEXT_PADDING_X, TEXT_PADDING_Y, NODE_BORDER_RADIUS } from/d" src/lib/components/NodeEditInput.tsx
 sed -i '' "/, worldToScreen/s///" src/lib/components/MindMapCanvas.tsx
 
 # 5. Fix implicit any in nodeUtils.ts
-sed -i '' "s/(child): child is MindMapNodeAST/(child: MindMapNodeAST | null): child is MindMapNodeAST/" src/lib/utils/nodeUtils.ts
+sed -i '' "s/(child): child is MindMapNode/(child: MindMapNode | null): child is MindMapNode/" src/lib/utils/nodeUtils.ts
 
 # 6. Fix vite config files by removing now-unnecessary imports (with @types/node installed)
 # and fixing the __dirname issue. We will use process.cwd() as a reliable alternative.

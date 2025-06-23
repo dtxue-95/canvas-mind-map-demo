@@ -387,7 +387,8 @@
 - ✅ **背景**: 用户反馈工具栏样式错乱，关闭按钮定位错误，缩放百分比不显示，并提供了期望的新UI风格图片。
 - ✅ **设计理念**:
     - **UI对齐**: 精确复刻用户提供的图片风格，包括按钮样式、布局、字体和分组。
-    - **移除复杂性**: 放弃了之前问题频发的"展开/收缩"和"悬浮小球"逻辑，改为更稳定、更直观的常驻式工具栏。
+    - **移除复杂性**: 放弃了之前问题频发的"展开/收缩
+    "和"悬浮小球"逻辑，改为更稳定、更直观的常驻式工具栏。
     - **健壮性优先**: 修复了所有已知的布局和显示问题，通过内联样式和简化逻辑来保证UI的稳定性。
 - ✅ **顶部工具栏重构 (Toolbar.tsx)**:
     - **全新风格**: 实现了"上图标、下文字"的圆角矩形按钮样式，完全匹配图片。
@@ -505,71 +506,65 @@
 
 ---
 
-**本节将持续追加所有NPM包化后的重要变更，确保每一步优化都有据可查。**
+### 效果
+通过本次重构，组件的灵活性和可扩展性得到了极大的提升，能更好地适应各种复杂的业务场景，是组件库走向成熟的关键一步。
 
-## 【功能升级】工具条完全配置化
+### 10.9 工具条按钮声明式自定义与 key/id 规范化
+- ✅ **背景**: 用户希望通过 ReactMindMap 组件的 props 直接声明要显示哪些工具条按钮（如增删、撤销、全屏等），而不是手动组装 action/icon。
+- ✅ **问题**: 用户在 App.tsx 传递的 topToolbarKeys/bottomToolbarKeys 使用了驼峰式 key（如 addChild、addSibling、deleteNode），而命令注册表和内部逻辑使用短横线风格（如 add-child-node、add-sibling-node、delete-node），导致按钮无法正常显示。
+- ✅ **修复内容**:
+    - 明确所有命令 id 采用短横线风格（如 add-child-node），并在文档和类型定义中补充注释说明。
+    - 优化 ReactMindMap 组件内部的工具条渲染逻辑，严格按传入的 key/id 过滤按钮。
+    - 检查并修正 App.tsx 示例配置，确保 key/id 与命令注册表一致。
+    - 保证 icon 字段为 React 组件，按钮渲染和点击逻辑声明式、自动化。
+- ✅ **结论**:
+    - 只需在 ReactMindMap 组件上传递 topToolbarKeys/bottomToolbarKeys，且 key/id 与命令注册表一致（短横线风格），即可声明式控制工具条按钮，无需手动组装 action/icon。
+    - 该方案极大提升了工具条自定义的易用性和可维护性。
 
-### 需求背景
-为了让思维导图组件库在不同项目中更灵活地使用，需要支持对顶部和底部工具条进行完全的自定义配置。用户应能决定显示哪些按钮、按钮的顺序、图标、文案乃至点击行为。
-
-### 实现方案
-1.  **定义标准配置类型**: 在 `types.ts` 中，新增了 `ToolbarButtonConfig` 接口，用于标准化描述每一个按钮的属性（`id`, `label`, `icon`, `action`, `disabled`, `visible` 等）。
-
-2.  **抽离默认配置**: 新建 `src/lib/defaultConfig.ts` 文件，将原先写死在组件内的工具条按钮逻辑抽离出来，导出为 `getDefaultTopToolbarConfig` 和 `getDefaultBottomToolbarConfig` 两个函数。这使得默认配置可被外部复用和修改。
-
-3.  **改造主组件**: `ReactMindMap.tsx` 新增 `topToolbarConfig` 和 `bottomToolbarConfig` 两个props。
-    - 组件优先使用用户传入的 `props` 来渲染工具条。
-    - 若 `props` 未提供，则调用 `defaultConfig.ts` 中的函数来加载默认工具条。
-    - 通过 `filter(btn => btn.visible !== false)` 支持了按钮的动态隐藏。
-
-4.  **导出模块**: 在库的入口文件 `src/lib/index.ts` 中，导出了 `defaultConfig` 和相关类型，方便最终用户在项目中导入和使用。
-
-### 使用方法
-
-用户现在可以通过向 `ReactMindMap` 组件传递 `topToolbarConfig` 或 `bottomToolbarConfig` 属性，来完全控制工具条的内容。
-
-**示例：只保留"添加"和"删除"按钮，并自定义一个按钮**
-```jsx
-import { 
-  ReactMindMap, 
-  getDefaultTopToolbarConfig 
-} from 'react-canvas-mindmap';
-import { FaSave } from 'react-icons/fa';
-
-function MyCustomMindMap() {
-  const handleSave = () => {
-    // 自定义保存逻辑...
-    alert('正在保存！');
-  };
-
-  // 获取默认配置，并进行修改
-  const customTopToolbar = [
-    // 只保留默认配置中的 'add-node'
-    ...getDefaultTopToolbarConfig(state, handlers).filter(btn => btn.id === 'add-node'),
-    // 添加一个全新的自定义按钮
-    {
+### 10.10 工具条支持自定义操作按钮
+- ✅ **背景**: 用户希望在思维导图工具条中，除了内置命令按钮外，还能灵活添加自定义操作按钮（如"保存"、"导出"等）。
+- ✅ **实现方案**:
+    - 在 ReactMindMapProps 新增 `topToolbarCustomButtons` 和 `bottomToolbarCustomButtons`，类型为 ToolbarButtonConfig[]。
+    - 渲染工具条时，将自定义按钮与内置按钮合并（追加到末尾）。
+    - 支持自定义 icon、label、action、title、disabled、visible 等属性。
+    - 所有类型和注释均已汉化，便于团队理解和二次开发。
+- ✅ **用法示例**:
+    ```tsx
+    import { FaSave } from 'react-icons/fa';
+    const customSaveButton = {
       id: 'custom-save',
       label: '保存',
       icon: FaSave,
-      action: handleSave,
-      title: '自定义保存按钮'
-    },
-    // 隐藏默认配置中的 'delete-node'
-    { 
-      ...getDefaultTopToolbarConfig(state, handlers).find(btn => btn.id === 'delete-node'), 
-      visible: false 
-    },
-  ];
+      action: () => alert('自定义保存！'),
+      title: '保存当前思维导图'
+    };
+    <ReactMindMap topToolbarCustomButtons={[customSaveButton]} />
+    ```
+- ✅ **优势**:
+    - 外部可声明式追加任意自定义按钮，满足多样化业务需求。
+    - 内置与自定义按钮可共存，互不影响。
+    - 未来可扩展更多自定义属性（如分组、顺序、权限等）。
 
-  return (
-    <ReactMindMap 
-      initialData={myData}
-      topToolbarConfig={customTopToolbar}
-      // bottomToolbarConfig 未传递，将使用默认的底部工具条
-    />
-  );
-}
-```
-
-### 效果
-通过本次重构，组件的灵活性和可扩展性得到了极大的提升，能更好地适应各种复杂的业务场景，是组件库走向成熟的关键一步。
+### 10.11 自定义工具条按钮支持函数式禁用（自动响应只读/编辑模式）
+- ✅ **背景**: 以往自定义按钮的禁用状态只能手动传递布尔值，无法自动响应全局只读/编辑模式，体验不一致。
+- ✅ **优化内容**:
+    - ToolbarButtonConfig 的 `disabled` 字段支持传递函数 `(state) => boolean`，可根据当前思维导图状态动态判断是否禁用。
+    - 组件内部会自动传递当前 state，和内置按钮行为完全一致。
+    - 只需写 `disabled: (state) => state.isReadOnly`，即可让按钮在只读时禁用、编辑时可用。
+- ✅ **使用示例**:
+    ```js
+    import { FaSave } from 'react-icons/fa';
+    const customSaveButton = {
+      id: 'custom-save',
+      label: '保存',
+      icon: FaSave,
+      action: () => alert('自定义保存！'),
+      title: '保存当前思维导图',
+      disabled: (state) => state.isReadOnly, // 自动禁用
+    };
+    <ReactMindMap topToolbarCustomButtons={[customSaveButton]} />
+    ```
+- ✅ **优势**:
+    - 自定义按钮禁用状态与全局只读/编辑模式完全同步，无需手动维护。
+    - 支持更复杂的动态禁用逻辑（如根据选中节点、权限等）。
+    - 体验与内置按钮一致，声明式、易扩展。

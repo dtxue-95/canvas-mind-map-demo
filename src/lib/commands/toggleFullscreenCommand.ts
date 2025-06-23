@@ -7,7 +7,7 @@ export const toggleFullscreenCommand: Command = {
   title: '切换全屏',
   icon: FiMaximize,
   canExecute: () => true,
-  execute: (state: MindMapState, handlers: { toggleFullscreen: () => void }) => {
+  execute: (_state: MindMapState, handlers: { toggleFullscreen: () => void }) => {
     handlers.toggleFullscreen();
   },
 }; 

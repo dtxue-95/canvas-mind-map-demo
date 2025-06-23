@@ -107,7 +107,7 @@ const BottomViewportToolbar: React.FC<BottomViewportToolbarProps> = ({
         "
       >
         <span className="flex items-center justify-center text-xl">
-          <command.icon />
+          {command.icon && React.createElement(command.icon)}
         </span>
       </button>
       <div className="

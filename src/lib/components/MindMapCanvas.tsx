@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useMindMap } from '../hooks/useMindMap';
-import { MindMapNodeAST, Point, Viewport } from '../types'; // Changed Node to MindMapNodeAST
+import { MindMapNode, Point, Viewport } from '../types'; // Changed Node to MindMapNode
 import { 
     drawNode, drawConnection, isPointInNode, screenToWorld, drawCollapseButton 
 } from '../utils/canvasUtils';
@@ -16,10 +16,10 @@ interface MindMapCanvasProps {
 // Helper function to find the node at a given point in the AST
 // Traverses children first to simulate "topmost" node selection if overlap (drawing order dependent)
 function findNodeInASTFromPoint(
-    targetNode: MindMapNodeAST | null,
+    targetNode: MindMapNode | null,
     worldPoint: Point,
     viewport: Viewport // Needed for isPointInNode if it relies on screen space, but isPointInNode uses world
-): MindMapNodeAST | null {
+): MindMapNode | null {
     if (!targetNode) return null;
 
     // Check children first (reverse order for "topmost" if drawn last)
@@ -83,7 +83,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
 
   const drawBranchRecursive = useCallback((
     ctx: CanvasRenderingContext2D,
-    node: MindMapNodeAST | null, // Takes the AST node directly
+    node: MindMapNode | null, // Takes the AST node directly
     currentViewport: Readonly<Viewport>,
     currentSelectedNodeId: string | null,
     currentEditingNodeId: string | null,
@@ -106,7 +106,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
 
     // 2. If the node is not collapsed and has children, draw connections
     if (!node.isCollapsed && node.children && node.children.length > 0) {
-      for (const childNode of node.children) { // Children are now MindMapNodeAST objects
+      for (const childNode of node.children) { // Children are now MindMapNode objects
         if (childNode) { // childNode is already the object
           const parentAnchor: Point = {
             x: node.position.x + node.width,
@@ -182,7 +182,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
 
     // Check for click on collapse/expand button first by traversing
     let buttonClickedProcessed = false;
-    function checkCollapseButtonRecursive(node: MindMapNodeAST | null): boolean {
+    function checkCollapseButtonRecursive(node: MindMapNode | null): boolean {
         if (!node) return false;
         
         // Check children first for "topmost" button, but only if parent is expanded
@@ -282,7 +282,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
     const worldPos = screenToWorld(mousePos, viewport);
     
     // Check if click was on a collapse button first (reverse traversal for topmost)
-    function wasCollapseButtonClicked(node: MindMapNodeAST | null): boolean {
+    function wasCollapseButtonClicked(node: MindMapNode | null): boolean {
         if (!node) return false;
         if (!node.isCollapsed) { // Only check children's buttons if parent is expanded
             for (let i = node.children.length - 1; i >=0; i--) {
@@ -431,7 +431,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance }) =>
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp} // Important to reset state if mouse leaves canvas while dragging
         onDoubleClick={handleDoubleClick}
-        aria-label="Mind map canvas"
+        aria-label="测试计划思维导图"
       />
       {nodeToEdit && canvasRef.current && canvasBounds && !isReadOnly && (
         <NodeEditInput
