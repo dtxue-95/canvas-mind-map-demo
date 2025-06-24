@@ -28,35 +28,22 @@ const MINIMAP_WIDTH = 180;
 const MINIMAP_HEIGHT = 120;
 const MINIMAP_PADDING = 8;
 const MINIMAP_RESOLUTION = 2; // 2x 分辨率抗锯齿
+const NODE_BORDER_RADIUS = 4;
 
 const Minimap: React.FC<MinimapProps> = ({ rootNode, viewport, canvasSize, onViewportChange, getNodeStyle }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState<{dx: number, dy: number} | null>(null);
-  const [targetViewport, setTargetViewport] = useState<Viewport | null>(null); // 用于动画过渡
 
-  // requestAnimationFrame 平滑动画
-  useEffect(() => {
-    if (!targetViewport) return;
-    let raf: number;
-    function animate() {
-      if (!targetViewport) return; // 防止 targetViewport 为 null
-      // 线性插值动画
-      const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-      const t = 0.25; // 动画速度
-      const newX = lerp(viewport.x, targetViewport.x, t);
-      const newY = lerp(viewport.y, targetViewport.y, t);
-      if (Math.abs(newX - targetViewport.x) < 1 && Math.abs(newY - targetViewport.y) < 1) {
-        onViewportChange(targetViewport);
-        setTargetViewport(null);
-        return;
-      }
-      onViewportChange({ ...viewport, x: newX, y: newY });
-      raf = requestAnimationFrame(animate);
+  // 递归收集所有选中节点id（主视图可传入 selectedNodeId，或遍历 node.selected）
+  function collectSelectedIds(node: MindMapNode, ids: Set<string>) {
+    if ((node as any).selected) ids.add(node.id);
+    if (node.children && !node.isCollapsed) {
+      for (const child of node.children) collectSelectedIds(child, ids);
     }
-    raf = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(raf);
-  }, [targetViewport, viewport, onViewportChange]);
+  }
+  const selectedIds = new Set<string>();
+  collectSelectedIds(rootNode, selectedIds);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -71,6 +58,15 @@ const Minimap: React.FC<MinimapProps> = ({ rootNode, viewport, canvasSize, onVie
     ctx.setTransform(MINIMAP_RESOLUTION, 0, 0, MINIMAP_RESOLUTION, 0, 0);
     ctx.clearRect(0, 0, MINIMAP_WIDTH, MINIMAP_HEIGHT);
 
+    // 绘制半透明白色背景+阴影
+    ctx!.save();
+    ctx!.globalAlpha = 0.92;
+    ctx!.fillStyle = '#fff';
+    ctx!.shadowColor = 'rgba(0,0,0,0.08)';
+    ctx!.shadowBlur = 8;
+    ctx!.fillRect(0, 0, MINIMAP_WIDTH, MINIMAP_HEIGHT);
+    ctx!.restore();
+
     // 计算思维导图整体包围盒
     const box = getMindMapBoundingBox(rootNode);
     const mapWidth = box.maxX - box.minX;
@@ -82,22 +78,35 @@ const Minimap: React.FC<MinimapProps> = ({ rootNode, viewport, canvasSize, onVie
     const offsetX = MINIMAP_PADDING - box.minX * scale + (MINIMAP_WIDTH - mapWidth * scale) / 2;
     const offsetY = MINIMAP_PADDING - box.minY * scale + (MINIMAP_HEIGHT - mapHeight * scale) / 2;
 
-    // 递归绘制所有节点
+    // 递归绘制所有节点（圆角矩形，支持 minimapColor/type/选中高亮）
     function drawNodeMini(node: MindMapNode) {
-      const style = { background: '#fff', border: '1px solid #bbb', ...(getNodeStyle ? getNodeStyle(node) : {}), ...(node.style || {}) };
+      const style = { background: '#fff', border: '1px solid #e5e7eb', ...(getNodeStyle ? getNodeStyle(node) : {}), ...(node.style || {}) };
+      // 优先 minimapColor 作为缩略图节点色
+      const fillColor = (style as any).minimapColor || style.background || '#fff';
+      const borderColor = selectedIds.has(node.id) ? '#3b82f6' : (typeof style.border === 'string' && style.border.split(' ').pop()) || '#e5e7eb';
       ctx!.save();
-      ctx!.fillStyle = typeof style.background === 'string' ? style.background : '#fff';
-      ctx!.strokeStyle = (typeof style.border === 'string' && style.border.split(' ').pop()) || '#bbb';
-      ctx!.globalAlpha = 0.85;
+      ctx!.globalAlpha = 0.95;
       ctx!.beginPath();
-      ctx!.rect(
-        (node.position.x) * scale + offsetX,
-        (node.position.y) * scale + offsetY,
-        node.width * scale,
-        node.height * scale
-      );
+      const x = node.position.x * scale + offsetX;
+      const y = node.position.y * scale + offsetY;
+      const w = node.width * scale;
+      const h = node.height * scale;
+      // 圆角矩形
+      ctx!.moveTo(x + NODE_BORDER_RADIUS, y);
+      ctx!.lineTo(x + w - NODE_BORDER_RADIUS, y);
+      ctx!.quadraticCurveTo(x + w, y, x + w, y + NODE_BORDER_RADIUS);
+      ctx!.lineTo(x + w, y + h - NODE_BORDER_RADIUS);
+      ctx!.quadraticCurveTo(x + w, y + h, x + w - NODE_BORDER_RADIUS, y + h);
+      ctx!.lineTo(x + NODE_BORDER_RADIUS, y + h);
+      ctx!.quadraticCurveTo(x, y + h, x, y + h - NODE_BORDER_RADIUS);
+      ctx!.lineTo(x, y + NODE_BORDER_RADIUS);
+      ctx!.quadraticCurveTo(x, y, x + NODE_BORDER_RADIUS, y);
+      ctx!.closePath();
+      ctx!.fillStyle = typeof fillColor === 'string' ? fillColor : '#fff';
       ctx!.fill();
       ctx!.globalAlpha = 1;
+      ctx!.strokeStyle = borderColor;
+      ctx!.lineWidth = selectedIds.has(node.id) ? 2 : 1;
       ctx!.stroke();
       ctx!.restore();
       if (node.children && !node.isCollapsed) {
@@ -106,21 +115,36 @@ const Minimap: React.FC<MinimapProps> = ({ rootNode, viewport, canvasSize, onVie
     }
     drawNodeMini(rootNode);
 
-    // 绘制主视图窗口高亮框
-    ctx.save();
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 2]);
-    // 计算主视图窗口在缩略图中的位置
-    const viewX = (-viewport.x / viewport.zoom - box.minX) * scale + offsetX;
-    const viewY = (-viewport.y / viewport.zoom - box.minY) * scale + offsetY;
-    const viewW = canvasSize.width / viewport.zoom * scale;
-    const viewH = canvasSize.height / viewport.zoom * scale;
-    ctx.strokeRect(viewX, viewY, viewW, viewH);
-    ctx.restore();
+    // 绘制主视图窗口高亮框+半透明遮罩
+    ctx!.save();
+    // 遮罩
+    ctx!.globalAlpha = 0.18;
+    ctx!.fillStyle = '#fff';
+    ctx!.fillRect(0, 0, MINIMAP_WIDTH, MINIMAP_HEIGHT);
+    ctx!.globalAlpha = 1;
+    // 视口框
+    ctx!.strokeStyle = '#34d399'; // Tailwind green-400
+    ctx!.lineWidth = 2;
+    ctx!.setLineDash([4, 2]);
+    // 视口框坐标裁剪，保证始终在小地图内，且始终有 MINIMAP_PADDING 间距
+    let viewX = (-viewport.x / viewport.zoom - box.minX) * scale + offsetX;
+    let viewY = (-viewport.y / viewport.zoom - box.minY) * scale + offsetY;
+    let viewW = canvasSize.width / viewport.zoom * scale;
+    let viewH = canvasSize.height / viewport.zoom * scale;
+    // 保证与小地图四周有 MINIMAP_PADDING 间距
+    const minX = MINIMAP_PADDING;
+    const minY = MINIMAP_PADDING;
+    const maxX = MINIMAP_WIDTH - MINIMAP_PADDING;
+    const maxY = MINIMAP_HEIGHT - MINIMAP_PADDING;
+    if (viewX < minX) { viewW -= (minX - viewX); viewX = minX; }
+    if (viewY < minY) { viewH -= (minY - viewY); viewY = minY; }
+    if (viewX + viewW > maxX) viewW = maxX - viewX;
+    if (viewY + viewH > maxY) viewH = maxY - viewY;
+    ctx!.strokeRect(viewX, viewY, Math.max(0, viewW), Math.max(0, viewH));
+    ctx!.restore();
   }, [rootNode, viewport, canvasSize, getNodeStyle]);
 
-  // 拖拽交互：pointerdown 开始拖拽，pointermove 实时更新，pointerup 结束
+  // 拖拽交互：pointerdown 开始拖拽，pointermove 实时同步主视图，pointerup 结束
   function getBoxAndScale() {
     const box = getMindMapBoundingBox(rootNode);
     const mapWidth = box.maxX - box.minX;
@@ -167,8 +191,8 @@ const Minimap: React.FC<MinimapProps> = ({ rootNode, viewport, canvasSize, onVie
     // 计算新的 viewport，使点击/拖拽点居中
     const newX = canvasSize.width / 2 - worldX * viewport.zoom;
     const newY = canvasSize.height / 2 - worldY * viewport.zoom;
-    // 动画过渡
-    setTargetViewport({ ...viewport, x: newX, y: newY });
+    // 实时同步主视图
+    onViewportChange({ ...viewport, x: newX, y: newY });
   }
 
   function handlePointerUp() {
@@ -205,8 +229,8 @@ const Minimap: React.FC<MinimapProps> = ({ rootNode, viewport, canvasSize, onVie
       bottom: 16,
       width: MINIMAP_WIDTH,
       height: MINIMAP_HEIGHT,
-      background: 'rgba(255,255,255,0.85)',
-      border: '1px solid #e5e7eb',
+      background: 'transparent',
+      border: 'none',
       borderRadius: 8,
       boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
       zIndex: 10,
@@ -220,6 +244,8 @@ const Minimap: React.FC<MinimapProps> = ({ rootNode, viewport, canvasSize, onVie
         height={MINIMAP_HEIGHT * MINIMAP_RESOLUTION}
         style={{ width: MINIMAP_WIDTH, height: MINIMAP_HEIGHT, display: 'block', borderRadius: 8 }}
         onPointerDown={handlePointerDown}
+        onPointerMove={isDragging ? handlePointerMove : undefined}
+        onPointerUp={handlePointerUp}
       />
     </div>
   );
