@@ -3,6 +3,7 @@ import React from 'react';
 export interface ContextMenuAction {
   key: string;
   label: string;
+  icon?: React.ReactNode;
   disabled?: boolean;
   onClick: () => void;
 }
@@ -38,8 +39,6 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, groups, onClos
     };
   }, [visible, onClose]);
 
-  console.log('ContextMenu groups', groups);
-
   if (!visible) return null;
   return (
     <div ref={menuRef} style={{ position: 'fixed', left: x, top: y, zIndex: 9999, background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', borderRadius: 6, minWidth: 160, padding: 4 }}>
@@ -48,9 +47,10 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, groups, onClos
           {group.actions.map(action => (
             <div
               key={action.key}
-              style={{ padding: '6px 16px', color: action.disabled ? '#bbb' : '#222', cursor: action.disabled ? 'not-allowed' : 'pointer', fontSize: 14, borderRadius: 4, userSelect: 'none' }}
+              style={{ padding: '6px 16px', color: action.disabled ? '#bbb' : '#222', cursor: action.disabled ? 'not-allowed' : 'pointer', fontSize: 14, borderRadius: 4, userSelect: 'none', display: 'flex', alignItems: 'center', gap: 8 }}
               onClick={() => { if (!action.disabled) { action.onClick(); onClose(); } }}
             >
+              {action.icon && <span style={{ marginRight: 8, display: 'flex', alignItems: 'center' }}>{action.icon}</span>}
               {action.label}
             </div>
           ))}

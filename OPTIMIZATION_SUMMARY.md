@@ -740,3 +740,65 @@
 ### 优化效果
 - 画布抖动和 Maximum update depth exceeded 报错已消失。
 - 搜索匹配跳转功能依然正常，体验更流畅
+
+## 2024-06 右键菜单与命令式集成优化
+
+1. **右键菜单分组与命令式调用**
+   - 右键菜单内容与顶部工具栏完全一致，所有操作均走 commands 目录下的命令式组件。
+   - 支持分组、图标、只读禁用、动态展开/收起等功能，行为与工具栏一致。
+
+2. **菜单图标渲染兼容性优化**
+   - 引入 getCommandIcon 辅助函数，自动兼容 icon 字段为 IconType 或 (state)=>IconType，确保菜单图标与工具栏一致。
+   - 修复了菜单图标渲染报错问题。
+
+3. **右键菜单 API 化与多实例独立控制**
+   - ReactMindMapProps 新增 enableContextMenu，可全局控制是否启用右键菜单。
+   - 新增 getContextMenuGroups，可自定义、动态注入菜单内容，并支持多实例独立配置。
+   - 右键空白处和节点均可自定义菜单内容。
+
+4. **右键菜单弹出逻辑修复**
+   - 修复了右键空白处无法弹出自定义菜单的问题。
+   - 现在无论节点还是空白处，右键都能弹出自定义菜单。
+
+---
+
+## 右键上下文菜单自定义用法
+
+### 1. 启用/禁用右键菜单
+```tsx
+<ReactMindMap enableContextMenu={false} /> // 禁用右键菜单
+<ReactMindMap enableContextMenu={true} />  // 启用右键菜单（默认）
+```
+
+### 2. 自定义右键菜单内容（支持节点和空白处）
+```tsx
+<ReactMindMap
+  // ...其他props
+  getContextMenuGroups={(node, state) => {
+    if (!node) {
+      // 右键空白处菜单
+      return [
+        { actions: [{ key: 'blank', label: '空白菜单', onClick: () => alert('空白处') }] }
+      ];
+    }
+    // 右键节点菜单
+    return [
+      {
+        actions: [
+          { key: 'edit', label: '自定义编辑', onClick: () => alert('编辑' + node.text) }
+        ]
+      }
+    ];
+  }}
+/>
+```
+- `node` 为当前右键的节点对象，空白处为 null。
+- `state` 为当前思维导图状态。
+- 返回值为 ContextMenuGroup[]，可自定义分组、图标、禁用、点击事件等。
+
+### 3. 多实例独立菜单
+每个 ReactMindMap 实例都可传递不同的 getContextMenuGroups，实现完全独立的右键菜单逻辑。
+
+---
+
+如需更复杂的菜单内容（如图标、快捷键、分隔符等），可参考 ContextMenuAction/ContextMenuGroup 类型扩展

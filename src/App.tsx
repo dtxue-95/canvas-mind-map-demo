@@ -85,8 +85,27 @@ function App() {
       return {}
     },
     canvasBackgroundColor:"#fffbe6",
-    showDotBackground:true,
-  };
+    showDotBackground:true, // 是否显示点状背景，类似 reactflow，默认 false
+    showMinimap:false, // 是否显示右下角 Minimap 缩略图，默认 true
+    enableContextMenu:true, // 是否启用右键上下文菜单，默认 true
+
+    // getContextMenuGroups:(node, state) => { // 自定义右键菜单内容生成函数
+    //   if (!node) {
+    //     // 右键空白处菜单
+    //     return [
+    //       { actions: [{ key: 'blank', label: '空白菜单', onClick: () => alert('空白处') }] }
+    //     ];
+    //   }
+    //   // 右键节点菜单
+    //   return [
+    //     {
+    //       actions: [
+    //         { key: 'edit', label: '自定义编辑', onClick: () => alert('编辑' + node.text) }
+    //       ]
+    //     }
+    //   ];
+    // }
+  }
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>

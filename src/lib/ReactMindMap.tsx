@@ -4,12 +4,13 @@ import MindMapCanvas from './components/MindMapCanvas';
 import BottomViewportToolbar from './components/BottomViewportToolbar';
 import SearchWidget from './components/SearchWidget';
 import { useMindMap } from './hooks/useMindMap';
-import { MindMapNode, Command, Point, ToolbarButtonConfig } from './types';
+import { MindMapNode, Command, Point, ToolbarButtonConfig, MindMapState } from './types';
 import { findNodeInAST } from './utils/nodeUtils';
 import { worldToScreen } from './utils/canvasUtils';
 import { getDefaultTopToolbarConfig, getDefaultBottomToolbarConfig } from './defaultConfig';
 import { FiMaximize, FiMinimize } from 'react-icons/fi';
 import Minimap from './components/Minimap';
+import { ContextMenuGroup } from './lib/components/ContextMenu';
 
 // Import all commands
 import { undoCommand } from './commands/undoCommand';
@@ -72,6 +73,17 @@ export interface ReactMindMapProps {
    * 是否显示右下角 Minimap 缩略图，默认 true
    */
   showMinimap?: boolean;
+  /**
+   * 是否启用右键上下文菜单，默认 true
+   */
+  enableContextMenu?: boolean;
+  /**
+   * 自定义右键菜单内容生成函数
+   * @param node 当前右键的节点对象（可能为 null，表示空白处）
+   * @param state 当前思维导图状态
+   * @returns ContextMenuGroup[] 菜单分组
+   */
+  getContextMenuGroups?: (node: MindMapNode | null, state: MindMapState) => ContextMenuGroup[];
 }
 
 export default function ReactMindMap({
@@ -90,6 +102,8 @@ export default function ReactMindMap({
   canvasBackgroundColor = '#f9fafb',
   showDotBackground = false,
   showMinimap = true,
+  enableContextMenu = true,
+  getContextMenuGroups,
 }: ReactMindMapProps) {
   const appContainerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -333,6 +347,8 @@ export default function ReactMindMap({
           getNodeStyle={getNodeStyle}
           canvasBackgroundColor={canvasBackgroundColor}
           showDotBackground={showDotBackground}
+          enableContextMenu={enableContextMenu}
+          getContextMenuGroups={getContextMenuGroups}
         />
         {/* 缩略图 Minimap，右下角悬浮显示，仅在 rootNode、canvasSize 有效且 showMinimap 时渲染 */}
         {showMinimap && state.rootNode && canvasSize && (

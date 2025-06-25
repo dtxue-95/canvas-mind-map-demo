@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useMindMap } from '../hooks/useMindMap';
-import { MindMapNode, Point, Viewport } from '../types'; // Changed Node to MindMapNode
+import { MindMapNode, Point, Viewport, MindMapState } from '../types'; // Changed Node to MindMapNode
 import { 
     drawNode, drawConnection, isPointInNode, screenToWorld, drawCollapseButton 
 } from '../utils/canvasUtils';
@@ -9,6 +9,9 @@ import NodeEditInput from './NodeEditInput';
 import { findNodeInAST, findNodeAndParentInAST } from '../utils/nodeUtils';
 import ContextMenu, { ContextMenuGroup } from './ContextMenu';
 import { FaPlus, FaTrash, FaChevronDown, FaChevronUp, FaExpand, FaCompress } from 'react-icons/fa';
+import { addChildNodeCommand } from '../commands/addChildNodeCommand';
+import { addSiblingNodeCommand } from '../commands/addSiblingNodeCommand';
+import { deleteNodeCommand } from '../commands/deleteNodeCommand';
 
 
 interface MindMapCanvasProps {
@@ -25,6 +28,14 @@ interface MindMapCanvasProps {
    * 是否显示点状背景，类似 reactflow
    */
   showDotBackground?: boolean;
+  /**
+   * 是否启用右键菜单，默认 true
+   */
+  enableContextMenu?: boolean;
+  /**
+   * 自定义右键菜单内容生成函数
+   */
+  getContextMenuGroups?: (node: MindMapNode | null, state: MindMapState) => ContextMenuGroup[];
 }
 
 // Helper function to find the node at a given point in the AST
@@ -68,7 +79,7 @@ function isAllCollapsed(node: MindMapNode): boolean {
   return node.children.every(isAllCollapsed);
 }
 
-const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground }) => {
+const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground, enableContextMenu = true, getContextMenuGroups }) => {
   const {
     state, setSelectedNode, setEditingNode, zoom, pan,
     updateNodeText, addNode: mindMapAddNode, deleteNode: mindMapDeleteNode,
@@ -93,6 +104,11 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
 
   const allExpanded = rootNode ? isAllExpanded(rootNode) : false;
   const allCollapsed = rootNode ? isAllCollapsed(rootNode) : false;
+
+  const getMenuCommandState = (nodeId: string) => ({
+    ...state,
+    selectedNodeId: nodeId
+  });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -378,17 +394,16 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     e.stopPropagation(); // 防止冒泡到 window，避免菜单被立即关闭
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) {
-      console.log('右键事件触发，但未获取到canvas rect');
       return;
     }
     const mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const worldPos = screenToWorld(mousePos, viewport);
     const node = findNodeInASTFromPoint(rootNode, worldPos, viewport);
-    console.log('右键事件触发', e.clientX, e.clientY);
-    console.log('canvas rect', rect);
-    console.log('鼠标相对canvas坐标', mousePos);
-    console.log('转换为world坐标', worldPos);
-    console.log('命中的节点', node);
+    // console.log('右键事件触发', e.clientX, e.clientY);
+    // console.log('canvas rect', rect);
+    // console.log('鼠标相对canvas坐标', mousePos);
+    // console.log('转换为world坐标', worldPos);
+    // console.log('命中的节点', node);
     if (node) {
       setContextMenu({ visible: true, x: e.clientX, y: e.clientY, node });
     } else {
@@ -410,16 +425,37 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     mindMapHookInstance.dispatch({ type: 'LOAD_DATA', payload: { rootNode: newRoot } });
   };
 
-  const contextMenuGroups: ContextMenuGroup[] = contextMenu.node ? [
+
+  const contextMenuGroups: ContextMenuGroup[] = getContextMenuGroups
+  ? getContextMenuGroups(contextMenu.node, state)
+  : (contextMenu.node ?  [
     {
       actions: [
-        { key: 'add-sibling', label: '添加同级节点', icon: <FaPlus />, onClick: () => mindMapAddNode(NEW_NODE_TEXT, findNodeAndParentInAST(rootNode, contextMenu.node!.id)?.parent?.id || null) },
-        { key: 'add-child', label: '添加子节点', icon: <FaPlus />, onClick: () => mindMapAddNode(NEW_NODE_TEXT, contextMenu.node!.id) },
+        {
+          key: 'add-sibling',
+          label: '添加同级节点',
+          icon: <FaPlus />,
+          onClick: () => addSiblingNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
+          disabled: !addSiblingNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+        },
+        {
+          key: 'add-child',
+          label: '添加子节点',
+          icon: <FaPlus />,
+          onClick: () => addChildNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
+          disabled: !addChildNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+        },
       ]
     },
     {
       actions: [
-        { key: 'delete', label: '删除节点', icon: <FaTrash />, onClick: () => mindMapDeleteNode(contextMenu.node!.id), disabled: contextMenu.node!.id === rootNode?.id }
+        {
+          key: 'delete',
+          label: '删除节点',
+          icon: <FaTrash />,
+          onClick: () => deleteNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { deleteNode: mindMapDeleteNode }),
+          disabled: !deleteNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+        }
       ]
     },
     {
@@ -433,7 +469,50 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
         { key: 'collapse-all', label: '收起所有节点', icon: <FaCompress />, onClick: handleCollapseAll, disabled: allCollapsed },
       ]
     }
-  ].filter(group => group.actions.length > 0) : [];
+  ] : []);
+
+  // const contextMenuGroups: ContextMenuGroup[] = contextMenu.node ? [
+  //   {
+  //     actions: [
+  //       {
+  //         key: 'add-sibling',
+  //         label: '添加同级节点',
+  //         icon: <FaPlus />,
+  //         onClick: () => addSiblingNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
+  //         disabled: !addSiblingNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+  //       },
+  //       {
+  //         key: 'add-child',
+  //         label: '添加子节点',
+  //         icon: <FaPlus />,
+  //         onClick: () => addChildNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
+  //         disabled: !addChildNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+  //       },
+  //     ]
+  //   },
+  //   {
+  //     actions: [
+  //       {
+  //         key: 'delete',
+  //         label: '删除节点',
+  //         icon: <FaTrash />,
+  //         onClick: () => deleteNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { deleteNode: mindMapDeleteNode }),
+  //         disabled: !deleteNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+  //       }
+  //     ]
+  //   },
+  //   {
+  //     actions: [
+  //       ...(contextMenu.node!.children && contextMenu.node!.children.length > 0 ? [
+  //         contextMenu.node!.isCollapsed
+  //           ? { key: 'expand', label: '展开当前节点', icon: <FaChevronDown />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
+  //           : { key: 'collapse', label: '收起当前节点', icon: <FaChevronUp />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
+  //       ] : []),
+  //       { key: 'expand-all', label: '展开所有节点', icon: <FaExpand />, onClick: handleExpandAll, disabled: allExpanded },
+  //       { key: 'collapse-all', label: '收起所有节点', icon: <FaCompress />, onClick: handleCollapseAll, disabled: allCollapsed },
+  //     ]
+  //   }
+  // ].filter(group => group.actions.length > 0) : [];
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -547,7 +626,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
         onMouseLeave={handleMouseUp}
         onDoubleClick={handleDoubleClick}
         aria-label="测试计划思维导图"
-        onContextMenu={handleCanvasContextMenu}
+        onContextMenu={enableContextMenu ? handleCanvasContextMenu : undefined}
       />
       <ContextMenu
         visible={contextMenu.visible}
