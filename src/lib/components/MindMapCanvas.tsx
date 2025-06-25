@@ -7,6 +7,8 @@ import {
 import { CANVAS_BACKGROUND_COLOR, DRAG_THRESHOLD, NEW_NODE_TEXT, COLLAPSE_BUTTON_RADIUS } from '../constants';
 import NodeEditInput from './NodeEditInput';
 import { findNodeInAST, findNodeAndParentInAST } from '../utils/nodeUtils';
+import ContextMenu, { ContextMenuGroup } from './ContextMenu';
+import { FaPlus, FaTrash, FaChevronDown, FaChevronUp, FaExpand, FaCompress } from 'react-icons/fa';
 
 
 interface MindMapCanvasProps {
@@ -48,6 +50,23 @@ function findNodeInASTFromPoint(
     return null;
 }
 
+// 递归展开/收起所有节点
+function setAllNodesCollapse(node: MindMapNode, collapse: boolean) {
+  node.isCollapsed = collapse;
+  if (node.children && node.children.length > 0) {
+    node.children.forEach(child => setAllNodesCollapse(child, collapse));
+  }
+}
+
+// 判断全树是否全部展开/全部收起
+function isAllExpanded(node: MindMapNode): boolean {
+  if (node.isCollapsed) return false;
+  return node.children.every(isAllExpanded);
+}
+function isAllCollapsed(node: MindMapNode): boolean {
+  if (!node.isCollapsed && node.children.length > 0) return false;
+  return node.children.every(isAllCollapsed);
+}
 
 const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground }) => {
   const {
@@ -70,7 +89,10 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
 
   const [currentCanvasSize, setCurrentCanvasSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [canvasBounds, setCanvasBounds] = useState<DOMRect | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; node: MindMapNode | null }>({ visible: false, x: 0, y: 0, node: null });
 
+  const allExpanded = rootNode ? isAllExpanded(rootNode) : false;
+  const allCollapsed = rootNode ? isAllCollapsed(rootNode) : false;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -351,6 +373,68 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     setEditingNode(null);
   };
 
+  const handleCanvasContextMenu = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    e.stopPropagation(); // 防止冒泡到 window，避免菜单被立即关闭
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) {
+      console.log('右键事件触发，但未获取到canvas rect');
+      return;
+    }
+    const mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const worldPos = screenToWorld(mousePos, viewport);
+    const node = findNodeInASTFromPoint(rootNode, worldPos, viewport);
+    console.log('右键事件触发', e.clientX, e.clientY);
+    console.log('canvas rect', rect);
+    console.log('鼠标相对canvas坐标', mousePos);
+    console.log('转换为world坐标', worldPos);
+    console.log('命中的节点', node);
+    if (node) {
+      setContextMenu({ visible: true, x: e.clientX, y: e.clientY, node });
+    } else {
+      setContextMenu({ visible: false, x: 0, y: 0, node: null });
+    }
+  };
+
+  const handleExpandAll = () => {
+    if (!rootNode) return;
+    const newRoot = JSON.parse(JSON.stringify(rootNode));
+    setAllNodesCollapse(newRoot, false);
+    mindMapHookInstance.dispatch({ type: 'LOAD_DATA', payload: { rootNode: newRoot } });
+  };
+
+  const handleCollapseAll = () => {
+    if (!rootNode) return;
+    const newRoot = JSON.parse(JSON.stringify(rootNode));
+    setAllNodesCollapse(newRoot, true);
+    mindMapHookInstance.dispatch({ type: 'LOAD_DATA', payload: { rootNode: newRoot } });
+  };
+
+  const contextMenuGroups: ContextMenuGroup[] = contextMenu.node ? [
+    {
+      actions: [
+        { key: 'add-sibling', label: '添加同级节点', icon: <FaPlus />, onClick: () => mindMapAddNode(NEW_NODE_TEXT, findNodeAndParentInAST(rootNode, contextMenu.node!.id)?.parent?.id || null) },
+        { key: 'add-child', label: '添加子节点', icon: <FaPlus />, onClick: () => mindMapAddNode(NEW_NODE_TEXT, contextMenu.node!.id) },
+      ]
+    },
+    {
+      actions: [
+        { key: 'delete', label: '删除节点', icon: <FaTrash />, onClick: () => mindMapDeleteNode(contextMenu.node!.id), disabled: contextMenu.node!.id === rootNode?.id }
+      ]
+    },
+    {
+      actions: [
+        ...(contextMenu.node!.children && contextMenu.node!.children.length > 0 ? [
+          contextMenu.node!.isCollapsed
+            ? { key: 'expand', label: '展开当前节点', icon: <FaChevronDown />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
+            : { key: 'collapse', label: '收起当前节点', icon: <FaChevronUp />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
+        ] : []),
+        { key: 'expand-all', label: '展开所有节点', icon: <FaExpand />, onClick: handleExpandAll, disabled: allExpanded },
+        { key: 'collapse-all', label: '收起所有节点', icon: <FaCompress />, onClick: handleCollapseAll, disabled: allCollapsed },
+      ]
+    }
+  ].filter(group => group.actions.length > 0) : [];
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // 检查焦点是否在输入框上，如果是则不处理全局键盘事件
@@ -460,13 +544,21 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp} // Important to reset state if mouse leaves canvas while dragging
+        onMouseLeave={handleMouseUp}
         onDoubleClick={handleDoubleClick}
         aria-label="测试计划思维导图"
+        onContextMenu={handleCanvasContextMenu}
+      />
+      <ContextMenu
+        visible={contextMenu.visible}
+        x={contextMenu.x}
+        y={contextMenu.y}
+        groups={contextMenuGroups}
+        onClose={() => setContextMenu({ visible: false, x: 0, y: 0, node: null })}
       />
       {nodeToEdit && canvasRef.current && canvasBounds && !isReadOnly && (
         <NodeEditInput
-          node={nodeToEdit} // Pass the actual AST node object
+          node={nodeToEdit}
           viewport={viewport}
           onSave={handleNodeEditSave}
           onCancel={handleNodeEditCancel}
