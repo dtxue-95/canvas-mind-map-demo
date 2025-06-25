@@ -83,7 +83,7 @@ export default function ReactMindMap({
   showTopToolbar = true,
   showBottomToolbar = true,
   readOnly = true,
-  onDataChange,
+  // onDataChange,
   topToolbarCustomButtons,
   bottomToolbarCustomButtons,
   getNodeStyle,
