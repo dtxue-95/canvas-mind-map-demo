@@ -722,3 +722,21 @@
 ```jsx
 <ReactMindMap showMinimap={false} {...其他props} /> // 隐藏 Minimap
 ```
+
+## 2024-07-24 useMindMap 死循环与画布抖动问题修复
+
+### 问题现象
+- 画布在某些操作下发生抖动，控制台报错：`Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.`
+- 具体报错位置：`useMindMap.ts:276`，涉及 ReactMindMap 组件。
+
+### 原因分析
+- useMindMap 中 goToNextMatch、goToPreviousMatch 两个 useCallback 依赖了 state.present.searchMatches 和 state.present.currentMatchIndex。
+- 这两个回调在 setTimeout 里又会触发 dispatch（setState），导致每次渲染都重新生成回调，进而引发 useEffect/useCallback 死循环，最终报错。
+
+### 解决方案
+- 修改 goToNextMatch 和 goToPreviousMatch，只依赖 historyDispatch 和 expandPathToNode，不再依赖 state.present.searchMatches、state.present.currentMatchIndex。
+- setTimeout 里用最新的 state.present，彻底避免死循环。
+
+### 优化效果
+- 画布抖动和 Maximum update depth exceeded 报错已消失。
+- 搜索匹配跳转功能依然正常，体验更流畅。

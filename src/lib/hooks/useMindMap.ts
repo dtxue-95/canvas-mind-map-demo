@@ -370,20 +370,25 @@ export function useMindMap(
 
   const goToNextMatch = useCallback(() => {
     historyDispatch({ type: 'GO_TO_NEXT_MATCH' });
-    // 跳转后自动展开到目标节点
     setTimeout(() => {
-      const matchId = state.present.searchMatches[(state.present.currentMatchIndex + 1) % state.present.searchMatches.length];
-      if (matchId) expandPathToNode(matchId);
+      const { searchMatches, currentMatchIndex } = state.present;
+      if (searchMatches.length > 0) {
+        const matchId = searchMatches[(currentMatchIndex + 1) % searchMatches.length];
+        if (matchId) expandPathToNode(matchId);
+      }
     }, 0);
-  }, [historyDispatch, state.present.searchMatches, state.present.currentMatchIndex, expandPathToNode]);
+  }, [historyDispatch, expandPathToNode]);
 
   const goToPreviousMatch = useCallback(() => {
     historyDispatch({ type: 'GO_TO_PREVIOUS_MATCH' });
     setTimeout(() => {
-      const matchId = state.present.searchMatches[(state.present.currentMatchIndex - 1 + state.present.searchMatches.length) % state.present.searchMatches.length];
-      if (matchId) expandPathToNode(matchId);
+      const { searchMatches, currentMatchIndex } = state.present;
+      if (searchMatches.length > 0) {
+        const matchId = searchMatches[(currentMatchIndex - 1 + searchMatches.length) % searchMatches.length];
+        if (matchId) expandPathToNode(matchId);
+      }
     }, 0);
-  }, [historyDispatch, state.present.searchMatches, state.present.currentMatchIndex, expandPathToNode]);
+  }, [historyDispatch, expandPathToNode]);
 
   const undo = useCallback(() => historyDispatch({ type: 'UNDO' }), []);
   const redo = useCallback(() => historyDispatch({ type: 'REDO' }), []);

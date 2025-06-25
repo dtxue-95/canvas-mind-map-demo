@@ -22,6 +22,39 @@ const SearchWidget: React.FC<SearchWidgetProps> = ({
     }
   }, [isVisible]);
 
+  useEffect(() => {
+    if (!isVisible) return;
+    const input = inputRef.current;
+    if (!input) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 只在输入框聚焦时响应
+      if (document.activeElement !== input) return;
+      // 阻止 Cmd+F/Ctrl+F
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      // Shift+Enter 或 ArrowUp：上一个匹配
+      if ((e.key === 'Enter' && e.shiftKey) || e.key === 'ArrowUp') {
+        e.preventDefault();
+        onPreviousMatch();
+        return;
+      }
+      // Enter 或 ArrowDown：下一个匹配
+      if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'ArrowDown') {
+        e.preventDefault();
+        onNextMatch();
+        return;
+      }
+    };
+    input.addEventListener('keydown', handleKeyDown);
+    return () => {
+      input.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isVisible, onNextMatch, onPreviousMatch]);
+
   if (!isVisible) {
     return null;
   }

@@ -8,12 +8,12 @@ export const NODE_SELECTED_TEXT_COLOR = '#1e40af'; // Tailwind blue-800 - 选中
 
 // 节点选中状态边框样式
 export const NODE_SELECTED_BORDER_COLOR = '#3b82f6'; // Tailwind blue-500 边框色
-export const NODE_SELECTED_BORDER_WIDTH = 2.5;
+export const NODE_SELECTED_BORDER_WIDTH = 1.5;
 
 // 节点高亮和搜索匹配样式
 export const NODE_HIGHLIGHT_BORDER_COLOR = '#FFD700'; // 金色高亮边框
 export const NODE_SEARCH_TEXT_MATCH_COLOR = '#FF0000'; // 红色搜索匹配文本
-export const NODE_HIGHLIGHT_BORDER_WIDTH = 3.0;
+export const NODE_HIGHLIGHT_BORDER_WIDTH = 2.0;
 export const NODE_EXACT_MATCH_BACKGROUND_COLOR = '#FEF3C7'; // 淡黄色精确匹配背景
 
 // 节点宽度限制
@@ -23,7 +23,7 @@ export const MAX_NODE_WIDTH = 300; // 节点最大宽度（超过可能需要文
 // 画布和连接线样式
 export const CANVAS_BACKGROUND_COLOR = '#f9fafb'; // Tailwind gray-50 画布背景色
 export const CONNECTION_LINE_COLOR = '#6b7280'; // Tailwind gray-500 连接线颜色
-export const CONNECTION_LINE_WIDTH = 1.5; // 连接线宽度（稍细一些）
+export const CONNECTION_LINE_WIDTH = 1; // 连接线宽度（稍细一些）
 
 // 文本和字体样式
 export const TEXT_PADDING_X = 12; // 文本水平内边距
