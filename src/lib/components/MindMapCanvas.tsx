@@ -12,6 +12,8 @@ import { FaPlus, FaTrash, FaChevronDown, FaChevronUp, FaExpand, FaCompress } fro
 import { addChildNodeCommand } from '../commands/addChildNodeCommand';
 import { addSiblingNodeCommand } from '../commands/addSiblingNodeCommand';
 import { deleteNodeCommand } from '../commands/deleteNodeCommand';
+import { fitViewCommand } from '../commands/fitViewCommand';
+import { centerViewCommand } from '../commands/centerViewCommand';
 
 
 interface MindMapCanvasProps {
@@ -393,22 +395,11 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     e.preventDefault();
     e.stopPropagation(); // 防止冒泡到 window，避免菜单被立即关闭
     const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) {
-      return;
-    }
+    if (!rect) return;
     const mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const worldPos = screenToWorld(mousePos, viewport);
     const node = findNodeInASTFromPoint(rootNode, worldPos, viewport);
-    // console.log('右键事件触发', e.clientX, e.clientY);
-    // console.log('canvas rect', rect);
-    // console.log('鼠标相对canvas坐标', mousePos);
-    // console.log('转换为world坐标', worldPos);
-    // console.log('命中的节点', node);
-    if (node) {
-      setContextMenu({ visible: true, x: e.clientX, y: e.clientY, node });
-    } else {
-      setContextMenu({ visible: false, x: 0, y: 0, node: null });
-    }
+    setContextMenu({ visible: true, x: e.clientX, y: e.clientY, node });
   };
 
   const handleExpandAll = () => {
@@ -425,94 +416,73 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     mindMapHookInstance.dispatch({ type: 'LOAD_DATA', payload: { rootNode: newRoot } });
   };
 
+  const getCommandIcon = (command: any, state: any) => {
+    // Implement the logic to return the appropriate icon based on the command and state
+    // This is a placeholder and should be replaced with the actual implementation
+    return <FaPlus />;
+  };
 
+  // 右键菜单分组
+  const { fitView, centerView } = mindMapHookInstance;
   const contextMenuGroups: ContextMenuGroup[] = getContextMenuGroups
-  ? getContextMenuGroups(contextMenu.node, state)
-  : (contextMenu.node ?  [
-    {
-      actions: [
-        {
-          key: 'add-sibling',
-          label: '添加同级节点',
-          icon: <FaPlus />,
-          onClick: () => addSiblingNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
-          disabled: !addSiblingNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
-        },
-        {
-          key: 'add-child',
-          label: '添加子节点',
-          icon: <FaPlus />,
-          onClick: () => addChildNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
-          disabled: !addChildNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
-        },
-      ]
-    },
-    {
-      actions: [
-        {
-          key: 'delete',
-          label: '删除节点',
-          icon: <FaTrash />,
-          onClick: () => deleteNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { deleteNode: mindMapDeleteNode }),
-          disabled: !deleteNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
-        }
-      ]
-    },
-    {
-      actions: [
-        ...(contextMenu.node!.children && contextMenu.node!.children.length > 0 ? [
-          contextMenu.node!.isCollapsed
-            ? { key: 'expand', label: '展开当前节点', icon: <FaChevronDown />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
-            : { key: 'collapse', label: '收起当前节点', icon: <FaChevronUp />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
-        ] : []),
-        { key: 'expand-all', label: '展开所有节点', icon: <FaExpand />, onClick: handleExpandAll, disabled: allExpanded },
-        { key: 'collapse-all', label: '收起所有节点', icon: <FaCompress />, onClick: handleCollapseAll, disabled: allCollapsed },
-      ]
-    }
-  ] : []);
-
-  // const contextMenuGroups: ContextMenuGroup[] = contextMenu.node ? [
-  //   {
-  //     actions: [
-  //       {
-  //         key: 'add-sibling',
-  //         label: '添加同级节点',
-  //         icon: <FaPlus />,
-  //         onClick: () => addSiblingNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
-  //         disabled: !addSiblingNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
-  //       },
-  //       {
-  //         key: 'add-child',
-  //         label: '添加子节点',
-  //         icon: <FaPlus />,
-  //         onClick: () => addChildNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
-  //         disabled: !addChildNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
-  //       },
-  //     ]
-  //   },
-  //   {
-  //     actions: [
-  //       {
-  //         key: 'delete',
-  //         label: '删除节点',
-  //         icon: <FaTrash />,
-  //         onClick: () => deleteNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { deleteNode: mindMapDeleteNode }),
-  //         disabled: !deleteNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
-  //       }
-  //     ]
-  //   },
-  //   {
-  //     actions: [
-  //       ...(contextMenu.node!.children && contextMenu.node!.children.length > 0 ? [
-  //         contextMenu.node!.isCollapsed
-  //           ? { key: 'expand', label: '展开当前节点', icon: <FaChevronDown />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
-  //           : { key: 'collapse', label: '收起当前节点', icon: <FaChevronUp />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
-  //       ] : []),
-  //       { key: 'expand-all', label: '展开所有节点', icon: <FaExpand />, onClick: handleExpandAll, disabled: allExpanded },
-  //       { key: 'collapse-all', label: '收起所有节点', icon: <FaCompress />, onClick: handleCollapseAll, disabled: allCollapsed },
-  //     ]
-  //   }
-  // ].filter(group => group.actions.length > 0) : [];
+    ? getContextMenuGroups(contextMenu.node, state)
+    : (
+      contextMenu.node
+        ? [
+            // 节点菜单（原有逻辑）
+            {
+              actions: [
+                {
+                  key: 'add-sibling',
+                  label: '添加同级节点',
+                  icon: getCommandIcon(addSiblingNodeCommand, getMenuCommandState(contextMenu.node!.id)),
+                  onClick: () => addSiblingNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
+                  disabled: !addSiblingNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+                },
+                {
+                  key: 'add-child',
+                  label: '添加子节点',
+                  icon: getCommandIcon(addChildNodeCommand, getMenuCommandState(contextMenu.node!.id)),
+                  onClick: () => addChildNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
+                  disabled: !addChildNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+                },
+              ]
+            },
+            {
+              actions: [
+                {
+                  key: 'delete',
+                  label: '删除节点',
+                  icon: getCommandIcon(deleteNodeCommand, getMenuCommandState(contextMenu.node!.id)),
+                  onClick: () => deleteNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { deleteNode: mindMapDeleteNode }),
+                  disabled: !deleteNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+                }
+              ]
+            },
+            {
+              actions: [
+                ...(contextMenu.node!.children && contextMenu.node!.children.length > 0 ? [
+                  contextMenu.node!.isCollapsed
+                    ? { key: 'expand', label: '展开当前节点', icon: <FaChevronDown />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
+                    : { key: 'collapse', label: '收起当前节点', icon: <FaChevronUp />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
+                ] : []),
+                { key: 'expand-all', label: '展开所有节点', icon: <FaExpand />, onClick: handleExpandAll, disabled: allExpanded },
+                { key: 'collapse-all', label: '收起所有节点', icon: <FaCompress />, onClick: handleCollapseAll, disabled: allCollapsed },
+              ]
+            }
+          ].filter(group => group.actions.length > 0)
+        : [
+            // 空白处菜单
+            {
+              actions: [
+                { key: 'expand-all', label: '展开所有节点', icon: <FaExpand />, onClick: handleExpandAll, disabled: allExpanded },
+                { key: 'collapse-all', label: '收起所有节点', icon: <FaCompress />, onClick: handleCollapseAll, disabled: allCollapsed },
+                { key: 'center-view', label: centerViewCommand.label, icon: getCommandIcon(centerViewCommand, state), onClick: () => centerViewCommand.execute(state, { centerView }), disabled: !centerViewCommand.canExecute(state) },
+                { key: 'fit-view', label: fitViewCommand.label, icon: getCommandIcon(fitViewCommand, state), onClick: () => fitViewCommand.execute(state, { fitView }), disabled: !fitViewCommand.canExecute(state) },
+              ]
+            }
+          ]
+    );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
