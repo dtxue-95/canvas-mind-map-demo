@@ -14,6 +14,8 @@ import { addSiblingNodeCommand } from '../commands/addSiblingNodeCommand';
 import { deleteNodeCommand } from '../commands/deleteNodeCommand';
 import { fitViewCommand } from '../commands/fitViewCommand';
 import { centerViewCommand } from '../commands/centerViewCommand';
+import { expandAllCommand } from '../commands/expandAllCommand';
+import { collapseAllCommand } from '../commands/collapseAllCommand';
 
 
 interface MindMapCanvasProps {
@@ -402,20 +404,6 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     setContextMenu({ visible: true, x: e.clientX, y: e.clientY, node });
   };
 
-  const handleExpandAll = () => {
-    if (!rootNode) return;
-    const newRoot = JSON.parse(JSON.stringify(rootNode));
-    setAllNodesCollapse(newRoot, false);
-    mindMapHookInstance.dispatch({ type: 'LOAD_DATA', payload: { rootNode: newRoot } });
-  };
-
-  const handleCollapseAll = () => {
-    if (!rootNode) return;
-    const newRoot = JSON.parse(JSON.stringify(rootNode));
-    setAllNodesCollapse(newRoot, true);
-    mindMapHookInstance.dispatch({ type: 'LOAD_DATA', payload: { rootNode: newRoot } });
-  };
-
   const getCommandIcon = (command: any, state: any) => {
     // Implement the logic to return the appropriate icon based on the command and state
     // This is a placeholder and should be replaced with the actual implementation
@@ -466,8 +454,8 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
                     ? { key: 'expand', label: '展开当前节点', icon: <FaChevronDown />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
                     : { key: 'collapse', label: '收起当前节点', icon: <FaChevronUp />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
                 ] : []),
-                { key: 'expand-all', label: '展开所有节点', icon: <FaExpand />, onClick: handleExpandAll, disabled: allExpanded },
-                { key: 'collapse-all', label: '收起所有节点', icon: <FaCompress />, onClick: handleCollapseAll, disabled: allCollapsed },
+                { key: 'expand-all', label: expandAllCommand.label, icon: getCommandIcon(expandAllCommand, state), onClick: () => expandAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !expandAllCommand.canExecute(state) },
+                { key: 'collapse-all', label: collapseAllCommand.label, icon: getCommandIcon(collapseAllCommand, state), onClick: () => collapseAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !collapseAllCommand.canExecute(state) },
               ]
             }
           ].filter(group => group.actions.length > 0)
@@ -475,8 +463,8 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
             // 空白处菜单
             {
               actions: [
-                { key: 'expand-all', label: '展开所有节点', icon: <FaExpand />, onClick: handleExpandAll, disabled: allExpanded },
-                { key: 'collapse-all', label: '收起所有节点', icon: <FaCompress />, onClick: handleCollapseAll, disabled: allCollapsed },
+                { key: 'expand-all', label: expandAllCommand.label, icon: getCommandIcon(expandAllCommand, state), onClick: () => expandAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !expandAllCommand.canExecute(state) },
+                { key: 'collapse-all', label: collapseAllCommand.label, icon: getCommandIcon(collapseAllCommand, state), onClick: () => collapseAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !collapseAllCommand.canExecute(state) },
                 { key: 'center-view', label: centerViewCommand.label, icon: getCommandIcon(centerViewCommand, state), onClick: () => centerViewCommand.execute(state, { centerView }), disabled: !centerViewCommand.canExecute(state) },
                 { key: 'fit-view', label: fitViewCommand.label, icon: getCommandIcon(fitViewCommand, state), onClick: () => fitViewCommand.execute(state, { fitView }), disabled: !fitViewCommand.canExecute(state) },
               ]
@@ -584,6 +572,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
   }, [zoom]);
   
   const nodeToEdit = editingNodeId ? findNodeInAST(rootNode, editingNodeId) : null;
+
 
   return (
     <div className="flex-grow w-full h-full relative overflow-hidden bg-gray-200" style={{ cursor: isPanning ? 'grabbing' : (isDraggingNode && !isReadOnly ? 'move' : 'default') }}>
