@@ -8,7 +8,8 @@ import { CANVAS_BACKGROUND_COLOR, DRAG_THRESHOLD, NEW_NODE_TEXT, COLLAPSE_BUTTON
 import NodeEditInput from './NodeEditInput';
 import { findNodeInAST, findNodeAndParentInAST } from '../utils/nodeUtils';
 import ContextMenu, { ContextMenuGroup } from './ContextMenu';
-import { FaPlus, FaTrash, FaChevronDown, FaChevronUp, FaExpand, FaCompress } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaChevronDown, FaChevronUp, FaExpand, FaCompress, FaSitemap } from 'react-icons/fa';
+import { FiCrosshair, FiBox } from 'react-icons/fi';
 import { addChildNodeCommand } from '../commands/addChildNodeCommand';
 import { addSiblingNodeCommand } from '../commands/addSiblingNodeCommand';
 import { deleteNodeCommand } from '../commands/deleteNodeCommand';
@@ -16,6 +17,7 @@ import { fitViewCommand } from '../commands/fitViewCommand';
 import { centerViewCommand } from '../commands/centerViewCommand';
 import { expandAllCommand } from '../commands/expandAllCommand';
 import { collapseAllCommand } from '../commands/collapseAllCommand';
+
 
 
 interface MindMapCanvasProps {
@@ -65,23 +67,7 @@ function findNodeInASTFromPoint(
     return null;
 }
 
-// 递归展开/收起所有节点
-function setAllNodesCollapse(node: MindMapNode, collapse: boolean) {
-  node.isCollapsed = collapse;
-  if (node.children && node.children.length > 0) {
-    node.children.forEach(child => setAllNodesCollapse(child, collapse));
-  }
-}
 
-// 判断全树是否全部展开/全部收起
-function isAllExpanded(node: MindMapNode): boolean {
-  if (node.isCollapsed) return false;
-  return node.children.every(isAllExpanded);
-}
-function isAllCollapsed(node: MindMapNode): boolean {
-  if (!node.isCollapsed && node.children.length > 0) return false;
-  return node.children.every(isAllCollapsed);
-}
 
 const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground, enableContextMenu = true, getContextMenuGroups }) => {
   const {
@@ -106,8 +92,6 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
   const [canvasBounds, setCanvasBounds] = useState<DOMRect | null>(null);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; node: MindMapNode | null }>({ visible: false, x: 0, y: 0, node: null });
 
-  const allExpanded = rootNode ? isAllExpanded(rootNode) : false;
-  const allCollapsed = rootNode ? isAllCollapsed(rootNode) : false;
 
   const getMenuCommandState = (nodeId: string) => ({
     ...state,
@@ -404,11 +388,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     setContextMenu({ visible: true, x: e.clientX, y: e.clientY, node });
   };
 
-  const getCommandIcon = (command: any, state: any) => {
-    // Implement the logic to return the appropriate icon based on the command and state
-    // This is a placeholder and should be replaced with the actual implementation
-    return <FaPlus />;
-  };
+
 
   // 右键菜单分组
   const { fitView, centerView } = mindMapHookInstance;
@@ -423,14 +403,14 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
                 {
                   key: 'add-sibling',
                   label: '添加同级节点',
-                  icon: getCommandIcon(addSiblingNodeCommand, getMenuCommandState(contextMenu.node!.id)),
+                  icon: <FaPlus />,
                   onClick: () => addSiblingNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
                   disabled: !addSiblingNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
                 },
                 {
                   key: 'add-child',
                   label: '添加子节点',
-                  icon: getCommandIcon(addChildNodeCommand, getMenuCommandState(contextMenu.node!.id)),
+                  icon: <FaPlus />,
                   onClick: () => addChildNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
                   disabled: !addChildNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
                 },
@@ -441,7 +421,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
                 {
                   key: 'delete',
                   label: '删除节点',
-                  icon: getCommandIcon(deleteNodeCommand, getMenuCommandState(contextMenu.node!.id)),
+                  icon: <FaTrash />,
                   onClick: () => deleteNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { deleteNode: mindMapDeleteNode }),
                   disabled: !deleteNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
                 }
@@ -454,8 +434,8 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
                     ? { key: 'expand', label: '展开当前节点', icon: <FaChevronDown />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
                     : { key: 'collapse', label: '收起当前节点', icon: <FaChevronUp />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
                 ] : []),
-                { key: 'expand-all', label: expandAllCommand.label, icon: getCommandIcon(expandAllCommand, state), onClick: () => expandAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !expandAllCommand.canExecute(state) },
-                { key: 'collapse-all', label: collapseAllCommand.label, icon: getCommandIcon(collapseAllCommand, state), onClick: () => collapseAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !collapseAllCommand.canExecute(state) },
+                { key: 'expand-all', label: expandAllCommand.label, icon: <FaExpand />, onClick: () => expandAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !expandAllCommand.canExecute(state) },
+                { key: 'collapse-all', label: collapseAllCommand.label, icon: <FaCompress />, onClick: () => collapseAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !collapseAllCommand.canExecute(state) },
               ]
             }
           ].filter(group => group.actions.length > 0)
@@ -463,10 +443,10 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
             // 空白处菜单
             {
               actions: [
-                { key: 'expand-all', label: expandAllCommand.label, icon: getCommandIcon(expandAllCommand, state), onClick: () => expandAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !expandAllCommand.canExecute(state) },
-                { key: 'collapse-all', label: collapseAllCommand.label, icon: getCommandIcon(collapseAllCommand, state), onClick: () => collapseAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !collapseAllCommand.canExecute(state) },
-                { key: 'center-view', label: centerViewCommand.label, icon: getCommandIcon(centerViewCommand, state), onClick: () => centerViewCommand.execute(state, { centerView }), disabled: !centerViewCommand.canExecute(state) },
-                { key: 'fit-view', label: fitViewCommand.label, icon: getCommandIcon(fitViewCommand, state), onClick: () => fitViewCommand.execute(state, { fitView }), disabled: !fitViewCommand.canExecute(state) },
+                { key: 'expand-all', label: expandAllCommand.label, icon: <FaExpand />, onClick: () => expandAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !expandAllCommand.canExecute(state) },
+                { key: 'collapse-all', label: collapseAllCommand.label, icon: <FaCompress />, onClick: () => collapseAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !collapseAllCommand.canExecute(state) },
+                { key: 'center-view', label: centerViewCommand.label, icon: <FiCrosshair />, onClick: () => centerViewCommand.execute(state, { centerView }), disabled: !centerViewCommand.canExecute(state) },
+                { key: 'fit-view', label: fitViewCommand.label, icon: <FiBox />, onClick: () => fitViewCommand.execute(state, { fitView }), disabled: !fitViewCommand.canExecute(state) },
               ]
             }
           ]
