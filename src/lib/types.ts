@@ -32,6 +32,7 @@ export interface MindMapNode {
   isCollapsed: boolean;          // 是否折叠状态
   childrenCount?: number;        // 子节点数量（折叠时显示）
   style?: React.CSSProperties;   // 节点自定义样式（可选）
+  nodeType?: string; // 节点类型
 }
 
 // 视口状态
@@ -180,6 +181,8 @@ export interface NodeEditInputProps {
   onSave: (text: string) => void;        // 保存回调
   onCancel: () => void;                  // 取消回调
   canvasBounds: DOMRect | null;          // 画布边界
+  typeConfig?: MindMapTypeConfig;        // 类型配置（用于标签渲染）
+  setDynamicWidth?: (width: number) => void; // 新增：编辑时动态宽度回调
 }
 
 // 搜索组件属性
@@ -208,6 +211,35 @@ export interface BottomToolbarProps {
   onToggleReadOnly: () => void;          // 切换只读模式回调
 }
 
+// 节点类型模式
+export type NodeTypeMode = 'none' | 'builtin' | 'custom';
+
+// 内置类型
+export type BuiltinNodeType =
+  | 'rootNode'
+  | 'moduleNode'
+  | 'testPointNode'
+  | 'caseNode'
+  | 'preconditionNode'
+  | 'stepNode'
+  | 'resultNode';
+
+// 自定义类型配置
+export interface CustomNodeTypeConfig {
+  type: string; // 类型唯一标识
+  label: string; // 标签显示文本
+  color: string; // 标签颜色
+  canAddTo: string[]; // 允许作为哪些类型的子节点
+  canAddChildren: string[]; // 允许添加哪些类型的子节点
+  maxChildrenOfType?: { [type: string]: number }; // 限制某类型子节点数量
+}
+
+// 类型控制配置
+export interface MindMapTypeConfig {
+  mode: NodeTypeMode;
+  customTypes?: CustomNodeTypeConfig[];
+}
+
 export interface ReactMindMapProps {
   // ...原有props...
   /**
@@ -215,5 +247,6 @@ export interface ReactMindMapProps {
    * (node, state) => React.CSSProperties
    */
   getNodeStyle?: (node: MindMapNode, state: MindMapState) => React.CSSProperties;
+  typeConfig?: MindMapTypeConfig;
 }
 

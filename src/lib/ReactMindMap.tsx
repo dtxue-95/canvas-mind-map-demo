@@ -89,6 +89,7 @@ export interface ReactMindMapProps {
    * @returns ContextMenuGroup[] 菜单分组
    */
   getContextMenuGroups?: (node: MindMapNode | null, state: MindMapState) => ContextMenuGroup[];
+  typeConfig: any;
 }
 
 export default function ReactMindMap({
@@ -110,11 +111,12 @@ export default function ReactMindMap({
   showMinimap = true,
   enableContextMenu = true,
   getContextMenuGroups,
+  typeConfig,
 }: ReactMindMapProps) {
   const appContainerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
-  const mindMapHook = useMindMap(canvasSize, initialData, onDataChangeDetailed, onDataChange);
+  const mindMapHook = useMindMap(canvasSize, initialData, onDataChangeDetailed, onDataChange, typeConfig);
   const { 
     state, 
     pan, 
@@ -139,25 +141,27 @@ export default function ReactMindMap({
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  useEffect(() => {
-    const updateSize = () => {
-      if (canvasContainerRef.current) {
-        const { width, height } = canvasContainerRef.current.getBoundingClientRect();
-        setCanvasSize({ width, height });
-        setTopHandlePosition({ x: width - 32, y: height * 0.25 });
-        setBottomHandlePosition({ x: width - 32, y: height * 0.75 });
-      }
-    };
-    const resizeObserver = new ResizeObserver(updateSize);
-    const target = appContainerRef.current;
-    if (target) {
-      resizeObserver.observe(target);
-      updateSize();
-    }
-    return () => { if (target) resizeObserver.unobserve(target); };
-  }, []);
+  // 新增：拖动状态全局标志
+  const isDraggingNodeRef = useRef(false);
 
+  // 传递给 MindMapCanvas，让其在拖动时设置 isDraggingNodeRef
+  const handleDraggingChange = (dragging: boolean) => {
+    isDraggingNodeRef.current = dragging;
+  };
+
+  // 拖动期间阻断自动居中，拖动结束后立即恢复
+  const autoCenterBlockedRef = useRef(false);
   useEffect(() => {
+    if (isDraggingNodeRef.current) {
+      autoCenterBlockedRef.current = true;
+      return;
+    }
+    // 拖动结束后立即恢复
+    if (autoCenterBlockedRef.current) {
+      autoCenterBlockedRef.current = false;
+    }
+    // 只在 selectedNodeId/editingNodeId 变化时自动居中
+    if (autoCenterBlockedRef.current) return;
     const nodeIdToFocus = state.editingNodeId || state.selectedNodeId;
     const nodeToFocus = nodeIdToFocus ? findNodeInAST(state.rootNode, nodeIdToFocus) : null;
     if (nodeToFocus && canvasSize) {
@@ -172,7 +176,8 @@ export default function ReactMindMap({
         else if (nodeScreenCenterPos.y > canvasSize.height - marginY) dyPan = (canvasSize.height - marginY) - nodeScreenCenterPos.y;
         if (dxPan !== 0 || dyPan !== 0) pan(dxPan, dyPan);
     }
-  }, [state.editingNodeId, state.selectedNodeId, state.rootNode, state.viewport, canvasSize, pan]);
+    // eslint-disable-next-line
+  }, [state.editingNodeId, state.selectedNodeId, state.rootNode, canvasSize]);
 
   // 自动居中到当前搜索匹配的节点
   useEffect(() => {
@@ -326,6 +331,26 @@ export default function ReactMindMap({
     }
   }, [isSearchVisible, setSearchTerm]);
 
+  useEffect(() => {
+    const updateSize = () => {
+      if (canvasContainerRef.current) {
+        const { width, height } = canvasContainerRef.current.getBoundingClientRect();
+        setCanvasSize({ width, height });
+        setTopHandlePosition({ x: width - 32, y: height * 0.25 });
+        setBottomHandlePosition({ x: width - 32, y: height * 0.75 });
+      }
+    };
+    // 新增：首次渲染后强制初始化 canvasSize
+    setTimeout(updateSize, 0);
+    const resizeObserver = new ResizeObserver(updateSize);
+    const target = appContainerRef.current;
+    if (target) {
+      resizeObserver.observe(target);
+      updateSize();
+    }
+    return () => { if (target) resizeObserver.unobserve(target); };
+  }, []);
+
   return (
     <div
       ref={appContainerRef}
@@ -347,6 +372,8 @@ export default function ReactMindMap({
           showDotBackground={showDotBackground}
           enableContextMenu={enableContextMenu}
           getContextMenuGroups={getContextMenuGroups}
+          // 新增：拖动状态回调
+          onDraggingChange={handleDraggingChange}
         />
         {/* 缩略图 Minimap，右下角悬浮显示，仅在 rootNode、canvasSize 有效且 showMinimap 时渲染 */}
         {showMinimap && state.rootNode && canvasSize && (

@@ -2,94 +2,106 @@ import React, { useState, useRef } from 'react';
 import { ReactMindMap, type ReactMindMapProps, type MindMapNode, type DataChangeInfo, OperationType } from './lib';
 import { FaSave } from 'react-icons/fa';
 
-// Let the component handle the transformation from raw data to MindMapNode
-const rawInitialData = {
+// 示例1：无类型模式（所有节点为普通节点）
+const rawInitialDataNone = {
   id: '1',
-  text: '中心主题：项目规划',
+  text: '普通根节点',
+  nodeType: 'normal',
+  children: [
+    { id: '2', text: '普通子节点1', nodeType: 'normal' },
+    { id: '3', text: '普通子节点2', nodeType: 'normal' },
+  ]
+};
+
+// 示例2：内置类型模式（推荐结构）
+const rawInitialDataBuiltin = {
+  id: '1',
+  text: '项目测试用例',
+  nodeType: 'rootNode',
   children: [
     {
       id: '2',
-      text: '第一阶段：需求分析',
+      text: '模块A',
+      nodeType: 'moduleNode',
       children: [
-        { id: '3', text: '用户需求调研' },
-        { id: '4', text: '功能需求定义' },
         {
-          id: '5',
-          text: '技术可行性分析',
+          id: '3',
+          text: '登录功能',
+          nodeType: 'testPointNode',
           children: [
-            { id: '6', text: '技术选型' },
-            { id: '7', text: '风险评估' },
+            {
+              id: '4',
+              text: '登录成功',
+              nodeType: 'caseNode',
+              children: [
+                { id: '5', text: '已注册用户', nodeType: 'preconditionNode' },
+                { id: '6', text: '输入正确账号密码', nodeType: 'stepNode', children: [
+                  { id: '7', text: '进入首页', nodeType: 'resultNode' }
+                ] },
+                { id: '8', text: '点击登录按钮', nodeType: 'stepNode', children: [
+                  { id: '9', text: '页面跳转', nodeType: 'resultNode' }
+                ] },
+              ]
+            }
           ]
-        },
+        }
       ]
     },
     {
-      id: '8',
-      text: '第二阶段：设计开发',
-      children: [
-        { id: '9', text: '系统架构设计' },
-        { id: '10', text: '数据库设计' },
-        { id: '11', text: '前端开发' },
-        { id: '12', text: '后端开发' },
-      ]
-    },
-    {
-      id: '13',
-      text: '第三阶段：测试部署',
-      children: [
-        { id: '14', text: '单元测试' },
-        { id: '15', text: '集成测试' },
-        { id: '16', text: '用户验收测试' },
-      ]
-    },
-    {
-      id: '17',
-      text: '第四阶段：上线维护',
-      children: [
-        { id: '18', text: '生产环境部署' },
-        { id: '19', text: '监控告警' },
-        { id: '20', text: '性能优化' },
-      ]
+      id: '10',
+      text: '模块B',
+      nodeType: 'moduleNode',
+      children: []
     }
   ]
 };
 
-function App() {
-  const [data] = useState(rawInitialData); // 只初始化一次
-  const [readOnly, setReadOnly] = useState(false);
-  const initialDataRef = useRef(data); // 只初始化一次
+// 示例3：自定义类型模式
+const rawInitialDataCustom = {
+  id: '1',
+  text: '自定义根',
+  nodeType: 'customRoot',
+  children: [
+    { id: '2', text: 'A类型节点', nodeType: 'A', children: [
+      { id: '3', text: 'B类型节点', nodeType: 'B' }
+    ] }
+  ]
+};
 
-  // 只做打印/保存，不做 setData
+// typeConfig 配置示例
+const typeConfigNone = { mode: 'none' };
+const typeConfigBuiltin = { mode: 'builtin' };
+const typeConfigCustom = {
+  mode: 'custom',
+  customTypes: [
+    { type: 'customRoot', label: '自定义根', color: '#888', canAddTo: [], canAddChildren: ['A'] },
+    { type: 'A', label: '类型A', color: '#34c759', canAddTo: ['customRoot'], canAddChildren: ['B'] },
+    { type: 'B', label: '类型B', color: '#ff9500', canAddTo: ['A'], canAddChildren: [] },
+  ]
+};
+
+function App() {
+  // 1. 无类型模式用法
+  // const [data] = useState(rawInitialDataNone);
+  // const typeConfig = typeConfigNone;
+
+  // 2. 内置类型模式用法（推荐）
+  const [data] = useState(rawInitialDataBuiltin);
+  const typeConfig = typeConfigBuiltin;
+
+  // 3. 自定义类型模式用法
+  // const [data] = useState(rawInitialDataCustom);
+  // const typeConfig = typeConfigCustom;
+
+  const [readOnly, setReadOnly] = useState(false);
+  const initialDataRef = useRef(data);
+
   const handleDataChangeDetailed = (changeInfo: DataChangeInfo) => {
-    // 这里只做打印/保存/导出，不要 setData
     console.log('最新数据', changeInfo.currentData);
-    console.log('数据变更详情:', changeInfo);
-   // 当前节点链路
-   console.log('idChain', changeInfo.idChain);
-   // 父节点链路
-   console.log('parentIdChain', changeInfo.parentIdChain);
-   // 当前节点详细信息
-   console.log('currentNode', changeInfo.currentNode);
-   // 父节点详细信息
-   console.log('parentNode', changeInfo.parentNode);
-    // 当前节点链路的节点对象数组
-  console.log('idChainNodes', changeInfo.idChainNodes);
-  // 父节点链路的节点对象数组
-  console.log('parentIdChainNodes', changeInfo.parentIdChainNodes);
-    // 根据操作类型进行不同的处理
-    switch (changeInfo.operationType) {
-      case OperationType.ADD_NODE:
-        console.log('新增节点:', changeInfo.addedNodes);
-        break;
-      case OperationType.DELETE_NODE:
-        console.log('删除节点:', changeInfo.deletedNodes);
-        break;
-      // ... 其他操作类型
-    }
   };
 
   const mindMapProps: ReactMindMapProps = {
-    initialData: initialDataRef.current as any, // 允许初始数据为原始对象，组件内部会转换
+    initialData: initialDataRef.current as any,
     onDataChangeDetailed: handleDataChangeDetailed,
     showTopToolbar: true,
     showBottomToolbar: true,
@@ -101,11 +113,10 @@ function App() {
     },
     canvasBackgroundColor: "#fffbe6",
     showDotBackground: true,
-    showMinimap: false,
+    showMinimap: true,
     enableContextMenu: true,
+    typeConfig,
   };
-
-
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>

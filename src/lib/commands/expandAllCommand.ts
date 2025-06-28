@@ -1,5 +1,6 @@
 import { FaExpand } from 'react-icons/fa';
 import { Command, MindMapState } from '../types';
+import { deepCopyAST } from '../utils/nodeUtils';
 
 function setAllNodesCollapse(node: any, collapse: boolean) {
   node.isCollapsed = collapse;
@@ -24,7 +25,7 @@ export const expandAllCommand: Command = {
   },
   execute: (state: MindMapState, handlers: { dispatch: Function }) => {
     if (!state.rootNode) return;
-    const newRoot = JSON.parse(JSON.stringify(state.rootNode));
+    const newRoot = deepCopyAST(state.rootNode);
     setAllNodesCollapse(newRoot, false);
     handlers.dispatch({ type: 'LOAD_DATA', payload: { rootNode: newRoot } });
   },

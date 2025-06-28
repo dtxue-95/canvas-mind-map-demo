@@ -189,4 +189,81 @@ const handleDataChangeDetailed = (changeInfo: DataChangeInfo) => {
 3. **实现复杂功能**: 数据持久化、协同编辑、操作分析
 4. **保持兼容性**: 不影响现有功能，向后兼容
 
-这个功能为思维导图组件的进一步扩展和应用提供了坚实的基础，支持更复杂的业务场景和用户需求。 
+这个功能为思维导图组件的进一步扩展和应用提供了坚实的基础，支持更复杂的业务场景和用户需求。
+
+## 2024-07-04 适应视图/居中视图命令首次点击无效的bug定位与修复
+
+### 问题现象
+- 拖动画布一切正常，但点击"适应视图（fitView）""居中视图（centerView）"等命令按钮时，首次点击无任何反应，控制台日志显示：
+  - fitView return: no canvasSize
+  - centerView return: no canvasSize
+- 多次点击后偶尔生效，体验极差。
+
+### 问题定位过程
+1. **加入口日志**：在 fitView/centerView 命令入口处打印 presentState.rootNode、canvasSize 等 early return 条件。
+2. **发现 canvasSize 为 null**：日志显示命令执行时 canvasSize 恒为 null，导致所有命令提前 return。
+3. **分析 canvasSize 初始化流程**：canvasSize 由 ReactMindMap 组件 useEffect/resizeObserver 初始化，首次渲染时 canvasContainerRef 还未挂载，导致 setCanvasSize 没有被及时调用。
+4. **确认根因**：首次渲染后 canvasSize 未初始化，命令按钮可点击但无效。
+
+### 解决方案
+- 在 ReactMindMap 组件 useEffect 中，首次渲染后用 setTimeout(updateSize, 0) 强制初始化 canvasSize，确保其不为 null。
+- 这样所有依赖 canvasSize 的命令（fitView/centerView/zoomIn/zoomOut）首次点击即可生效。
+
+### 相关代码片段
+```js
+useEffect(() => {
+  const updateSize = () => {
+    if (canvasContainerRef.current) {
+      const { width, height } = canvasContainerRef.current.getBoundingClientRect();
+      setCanvasSize({ width, height });
+      setTopHandlePosition({ x: width - 32, y: height * 0.25 });
+      setBottomHandlePosition({ x: width - 32, y: height * 0.75 });
+    }
+  };
+  // 新增：首次渲染后强制初始化 canvasSize
+  setTimeout(updateSize, 0);
+  const resizeObserver = new ResizeObserver(updateSize);
+  const target = appContainerRef.current;
+  if (target) {
+    resizeObserver.observe(target);
+    updateSize();
+  }
+  return () => { if (target) resizeObserver.unobserve(target); };
+}, []);
+```
+
+### 调试建议
+- 若遇到命令按钮无效，优先检查 early return 条件（如 canvasSize/rootNode/selectedNodeId 是否为 null）。
+- 在命令入口和 reducer、canvas 渲染等关键路径加详细日志，逐步缩小问题范围。
+- 保证所有依赖 DOM 的初始化（如 canvasSize）在首次渲染后能被正确赋值。
+- 命令按钮可根据 canvasSize 是否为 null 动态禁用，提升用户体验。
+
+--- 
+
+### 2024-07-02 编辑节点相关渲染与数据结构bug修复记录
+
+#### 1. 编辑带子节点的节点时，子节点消失
+- 问题现象：编辑带子节点的节点时，子节点全部消失。
+- 原因分析：MindMapCanvas 渲染时，原本为避免重影，递归时遇到 editingId 直接 return，导致该节点及其所有子节点都被跳过渲染。
+- 修复方案：只跳过当前节点的 drawNode，递归渲染其所有子节点，保证子树不丢失。
+
+#### 2. 编辑带子节点的节点时，子节点连线不渲染
+- 问题现象：编辑节点时，子节点本体能渲染，但与父节点的连线消失。
+- 原因分析：连线绘制逻辑在父节点，原实现跳过了整个节点的所有绘制（包括连线），导致连线也被跳过。
+- 修复方案：只跳过 drawNode，连线和折叠按钮始终绘制，保证结构完整。
+
+#### 3. 编辑节点内容时，节点宽度变化但连线未跟随
+- 问题现象：编辑节点内容时，节点宽度变化，但子节点连线起点未实时跟随输入框宽度。
+- 原因分析：连线起点始终用 node.width，未感知输入框宽度变化。
+- 修复方案：NodeEditInput 组件每次宽度变化时通过 setDynamicWidth 回调通知主画布，主画布渲染连线时若为 editingId 则用实时宽度，连线动态跟随输入框。
+
+---
+
+这些修复保证了编辑节点时：
+- 子节点始终正常渲染
+- 连线结构不丢失
+- 连线与输入框宽度实时同步
+
+并形成了"只跳过节点本体绘制，不跳过子树递归和连线"的最佳实践。
+
+--- 

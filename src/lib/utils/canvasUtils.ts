@@ -118,26 +118,57 @@ function splitTextIntoLines(
 /**
  * 计算节点的尺寸
  * @param text 节点文本
+ * @param nodeType 节点类型
+ * @param typeConfig 类型配置
  * @returns 节点的宽度和高度
  */
-export function calculateNodeDimensions(text: string): { width: number; height: number } {
+export function calculateNodeDimensions(text: string, nodeType?: string, typeConfig?: any): { width: number; height: number } {
   const ctx = getOffscreenContext(); // 确保字体已设置
-  
-  // 首先基于最长不间断序列或最大宽度估算宽度
-  const singleLineMetrics = ctx.measureText(text.trim() || " "); // 对空文本使用空格进行度量
-  let width = singleLineMetrics.width + TEXT_PADDING_X * 2;
+  let labelWidth = 0;
+  // 计算标签宽度
+  if (nodeType) {
+    let labelConfig: { label: string; color: string; bg: string } | undefined;
+    if (typeConfig && typeConfig.mode === 'custom' && Array.isArray(typeConfig.customTypes)) {
+      const custom = typeConfig.customTypes.find((t: any) => t.type === nodeType);
+      if (custom) {
+        labelConfig = { label: custom.label, color: custom.color, bg: custom.color + '22' };
+      }
+    } else if (typeConfig && typeConfig.mode === 'builtin' && BUILTIN_TYPE_LABELS[nodeType]) {
+      labelConfig = BUILTIN_TYPE_LABELS[nodeType];
+    } else if (BUILTIN_TYPE_LABELS[nodeType]) {
+      labelConfig = BUILTIN_TYPE_LABELS[nodeType];
+    }
+    if (labelConfig) {
+      ctx.save();
+      ctx.font = `500 12px ${FONT_FAMILY}`;
+      const paddingX = 6;
+      labelWidth = ctx.measureText(labelConfig.label).width + paddingX * 2 + 6; // 6为标签与文本间距
+      ctx.restore();
+    }
+  }
+  // 计算文本宽度
+  const singleLineMetrics = ctx.measureText(text.trim() || " ");
+  let width = singleLineMetrics.width + TEXT_PADDING_X * 2 + labelWidth;
   width = Math.max(MIN_NODE_WIDTH, Math.min(width, MAX_NODE_WIDTH));
-
-  const maxTextWidth = width - TEXT_PADDING_X * 2;
+  const maxTextWidth = width - TEXT_PADDING_X * 2 - labelWidth;
   const lines = splitTextIntoLines(text.trim(), maxTextWidth, ctx);
-  
   const numLines = lines.length;
-  const lineHeight = FONT_SIZE * 1.2; // 行高因子
+  const lineHeight = FONT_SIZE * 1.2;
   const calculatedHeight = numLines * lineHeight + TEXT_PADDING_Y * 2;
   const height = Math.max(NODE_DEFAULT_HEIGHT, calculatedHeight);
-
   return { width, height };
 }
+
+// 内置类型标签样式配置
+const BUILTIN_TYPE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  rootNode: { label: '根', color: '#8e8e93', bg: '#f4f4f7' },
+  moduleNode: { label: '模块', color: '#34c759', bg: '#eafaf1' },
+  testPointNode: { label: '测试点', color: '#ff9500', bg: '#fff7e6' },
+  caseNode: { label: '用例', color: '#007aff', bg: '#e6f0ff' },
+  preconditionNode: { label: '前置', color: '#af52de', bg: '#f6eaff' },
+  stepNode: { label: '步骤', color: '#32ade6', bg: '#e6faff' },
+  resultNode: { label: '预期', color: '#ff3b30', bg: '#fff0ef' },
+};
 
 /**
  * 绘制节点
@@ -149,6 +180,7 @@ export function calculateNodeDimensions(text: string): { width: number; height: 
  * @param isExactMatch 是否精确匹配
  * @param currentSearchTerm 当前搜索词
  * @param style 节点自定义样式（可选，优先级高于节点默认属性）
+ * @param typeConfig 类型配置（可选）
  */
 export function drawNode(
   ctx: CanvasRenderingContext2D,
@@ -158,7 +190,8 @@ export function drawNode(
   isHighlighted?: boolean,
   isExactMatch?: boolean,
   currentSearchTerm?: string,
-  style?: React.CSSProperties
+  style?: React.CSSProperties,
+  typeConfig?: any
 ): void {
   // 匹配高亮样式优先级最高
   let background = (style?.background as string) || (style?.backgroundColor as string) || node.color;
@@ -244,14 +277,63 @@ export function drawNode(
     ctx.restore();
   }
 
-  // 绘制文本
+  // --- 标签渲染 ---
+  let labelWidth = 0;
+  let labelConfig: { label: string; color: string; bg: string } | undefined;
+  if (node.nodeType) {
+    if (typeConfig && typeConfig.mode === 'custom' && Array.isArray(typeConfig.customTypes)) {
+      const custom = typeConfig.customTypes.find((t: any) => t.type === node.nodeType);
+      if (custom) {
+        labelConfig = { label: custom.label, color: custom.color, bg: custom.color + '22' };
+      }
+    } else if (typeConfig && typeConfig.mode === 'builtin' && BUILTIN_TYPE_LABELS[node.nodeType]) {
+      labelConfig = BUILTIN_TYPE_LABELS[node.nodeType];
+    } else if (BUILTIN_TYPE_LABELS[node.nodeType]) {
+      labelConfig = BUILTIN_TYPE_LABELS[node.nodeType];
+    }
+  }
+  if (labelConfig) {
+    ctx.save();
+    ctx.font = `500 12px ${fontFamily}`;
+    const paddingX = 6;
+    const labelText = labelConfig.label;
+    labelWidth = ctx.measureText(labelText).width + paddingX * 2;
+    const labelHeight = 20;
+    const labelX = node.position.x + TEXT_PADDING_X;
+    const labelY = node.position.y + (node.height - labelHeight) / 2;
+    // 圆角矩形
+    ctx.beginPath();
+    ctx.moveTo(labelX + 6, labelY);
+    ctx.lineTo(labelX + labelWidth - 6, labelY);
+    ctx.quadraticCurveTo(labelX + labelWidth, labelY, labelX + labelWidth, labelY + 6);
+    ctx.lineTo(labelX + labelWidth, labelY + labelHeight - 6);
+    ctx.quadraticCurveTo(labelX + labelWidth, labelY + labelHeight, labelX + labelWidth - 6, labelY + labelHeight);
+    ctx.lineTo(labelX + 6, labelY + labelHeight);
+    ctx.quadraticCurveTo(labelX, labelY + labelHeight, labelX, labelY + labelHeight - 6);
+    ctx.lineTo(labelX, labelY + 6);
+    ctx.quadraticCurveTo(labelX, labelY, labelX + 6, labelY);
+    ctx.closePath();
+    ctx.fillStyle = labelConfig.bg;
+    ctx.fill();
+    ctx.strokeStyle = labelConfig.color;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // 文字
+    ctx.fillStyle = labelConfig.color;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(labelText, labelX + paddingX, labelY + labelHeight / 2);
+    ctx.restore();
+  }
+
+  // --- 文本渲染 ---
   ctx.save();
   ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-  ctx.textAlign = 'center';
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  const textX = node.position.x + node.width / 2;
+  const textX = node.position.x + TEXT_PADDING_X + (labelWidth > 0 ? labelWidth + 6 : 0); // 标签后加间距
   const textY = node.position.y + node.height / 2;
-  const maxTextWidth = node.width - TEXT_PADDING_X * 2;
+  const maxTextWidth = node.width - TEXT_PADDING_X * 2 - labelWidth - (labelWidth > 0 ? 6 : 0);
   const lines = splitTextIntoLines(node.text, maxTextWidth, ctx);
   const lineHeight = Number(fontSize) * 1.2;
   const totalTextHeight = lines.length * lineHeight;
@@ -262,8 +344,7 @@ export function drawNode(
       ctx.textAlign = 'left';
       const searchTermLower = currentSearchTerm.toLowerCase().trim();
       const lineTextLower = line.toLowerCase();
-      const totalLineWidth = ctx.measureText(line).width;
-      let currentRenderX = node.position.x + (node.width - totalLineWidth) / 2;
+      let currentRenderX = textX;
       let lastIndex = 0;
       while (lastIndex < line.length) {
         const matchIndex = lineTextLower.indexOf(searchTermLower, lastIndex);
@@ -287,7 +368,6 @@ export function drawNode(
         }
       }
     } else {
-      ctx.textAlign = 'center';
       ctx.fillStyle = textColor;
       ctx.fillText(line, textX, lineY);
     }

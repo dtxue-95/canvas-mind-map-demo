@@ -155,6 +155,7 @@ export function transformToMindMapNode(obj: any): MindMapNode {
   if (obj.textColor) newNode.textColor = obj.textColor;
   if ('isCollapsed' in obj) newNode.isCollapsed = !!obj.isCollapsed;
   else newNode.isCollapsed = false;
+  if (obj.nodeType) newNode.nodeType = obj.nodeType;
 
   // 尺寸和位置将由布局引擎后续计算和设置
   return newNode;

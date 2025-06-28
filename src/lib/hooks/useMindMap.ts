@@ -1,5 +1,5 @@
-import { useReducer, useCallback, useEffect } from 'react';
-import { MindMapNode, Point, Viewport, MindMapAction, AddNodePayload, DeleteNodePayload, MindMapState, DataChangeCallback, DataChangeInfo, OperationType } from '../types';
+import { useReducer, useCallback, useEffect, useRef } from 'react';
+import { MindMapNode, Point, Viewport, MindMapAction, AddNodePayload, DeleteNodePayload, MindMapState, DataChangeCallback, DataChangeInfo, OperationType, MindMapTypeConfig } from '../types';
 import { INITIAL_ZOOM, MIN_ZOOM, MAX_ZOOM, ZOOM_SENSITIVITY, CHILD_H_SPACING, NODE_DEFAULT_COLOR, NODE_TEXT_COLOR } from '../constants';
 import { countAllDescendants, deepCopyAST, findNodeAndParentInAST, findNodeInAST, transformToMindMapNode } from '../utils/nodeUtils';
 import { applyLayout } from '../layoutEngine';
@@ -19,160 +19,164 @@ const initialMindMapState: MindMapState = {
   currentMatchNodeId: null,
 };
 
-function mindMapReducer(state: MindMapState = initialMindMapState, action: MindMapAction): MindMapState {
-  switch (action.type) {
-    case 'REPLACE_STATE': // Special action to replace the whole state for history reset
-      return (action as any).payload.present; // Return the present part of the payload
-    case 'INIT_MAP':
-      return state;
-    case 'ADD_NODE': {
-      if (!state.rootNode) return state; // Or handle creating a root node
-      const { text, parentId } = (action as { type: 'ADD_NODE', payload: AddNodePayload }).payload;
-      const newRoot = deepCopyAST(state.rootNode);
-      const parent = parentId ? findNodeInAST(newRoot, parentId) : newRoot;
-
-      if (!parent) {
-        console.error("ADD_NODE: Parent node not found!");
+function createMindMapReducer(typeConfig?: any) {
+  return function mindMapReducer(state: MindMapState = initialMindMapState, action: MindMapAction): MindMapState {
+    switch (action.type) {
+      case 'REPLACE_STATE': // Special action to replace the whole state for history reset
+        console.log('REPLACE_STATE'); console.trace('REPLACE_STATE');
+        return (action as any).payload.present; // Return the present part of the payload
+      case 'INIT_MAP':
         return state;
+      case 'ADD_NODE': {
+        if (!state.rootNode) return state; // Or handle creating a root node
+        const { text, parentId } = (action as { type: 'ADD_NODE', payload: AddNodePayload }).payload;
+        const newRoot = deepCopyAST(state.rootNode);
+        const parent = parentId ? findNodeInAST(newRoot, parentId) : newRoot;
+        if (!parent) {
+          console.error("ADD_NODE: Parent node not found!");
+          return state;
+        }
+        const newNode: MindMapNode = {
+          id: `node-${Date.now()}-${Math.random()}`,
+          text: text,
+          children: [],
+          position: { x: 0, y: 0 }, // Position will be set by layout
+          width: 0, height: 0, // Dimensions will be set by layout
+          color: NODE_DEFAULT_COLOR,
+          textColor: NODE_TEXT_COLOR,
+          isCollapsed: false,
+        };
+        parent.children.push(newNode);
+        const laidOutRoot = applyLayout(newRoot, typeConfig);
+        return { ...state, rootNode: laidOutRoot, selectedNodeId: newNode.id };
       }
+      case 'DELETE_NODE': {
+        if (!state.rootNode) return state;
+        const { nodeId } = (action as { type: 'DELETE_NODE', payload: DeleteNodePayload }).payload;
 
-      const newNode: MindMapNode = {
-        id: `node-${Date.now()}-${Math.random()}`,
-        text: text,
-        children: [],
-        position: { x: 0, y: 0 }, // Position will be set by layout
-        width: 0, height: 0, // Dimensions will be set by layout
-        color: NODE_DEFAULT_COLOR,
-        textColor: NODE_TEXT_COLOR,
-        isCollapsed: false,
-      };
+        if (state.rootNode.id === nodeId) {
+          console.error("DELETE_NODE: Cannot delete the root node.");
+          return state;
+        }
 
-      parent.children.push(newNode);
+        const newRoot = deepCopyAST(state.rootNode);
+        const result = findNodeAndParentInAST(newRoot, nodeId);
 
-      const laidOutRoot = applyLayout(newRoot);
-      return { ...state, rootNode: laidOutRoot, selectedNodeId: newNode.id };
-    }
-    case 'DELETE_NODE': {
-      if (!state.rootNode) return state;
-      const { nodeId } = (action as { type: 'DELETE_NODE', payload: DeleteNodePayload }).payload;
+        if (!result || !result.parent) {
+          console.error("DELETE_NODE: Node or its parent not found.");
+          return state;
+        }
 
-      if (state.rootNode.id === nodeId) {
-        console.error("DELETE_NODE: Cannot delete the root node.");
-        return state;
+        const { parent, node: nodeToDelete } = result;
+        const index = parent.children.findIndex(child => child.id === nodeId);
+
+        if (index === -1) return state;
+
+        const deletedNodeIds = new Set<string>();
+        function collectIds(node: MindMapNode) {
+          deletedNodeIds.add(node.id);
+          node.children.forEach(collectIds);
+        }
+        collectIds(nodeToDelete);
+
+        parent.children.splice(index, 1);
+
+        let newSelectedNodeId: string | null = parent.id;
+
+        const laidOutRoot = applyLayout(newRoot, typeConfig);
+
+        return {
+          ...state,
+          rootNode: laidOutRoot,
+          selectedNodeId: newSelectedNodeId,
+          editingNodeId: state.editingNodeId && deletedNodeIds.has(state.editingNodeId) ? null : state.editingNodeId
+        };
       }
-
-      const newRoot = deepCopyAST(state.rootNode);
-      const result = findNodeAndParentInAST(newRoot, nodeId);
-
-      if (!result || !result.parent) {
-        console.error("DELETE_NODE: Node or its parent not found.");
-        return state;
-      }
-
-      const { parent, node: nodeToDelete } = result;
-      const index = parent.children.findIndex(child => child.id === nodeId);
-
-      if (index === -1) return state;
-
-      const deletedNodeIds = new Set<string>();
-      function collectIds(node: MindMapNode) {
-        deletedNodeIds.add(node.id);
-        node.children.forEach(collectIds);
-      }
-      collectIds(nodeToDelete);
-
-      parent.children.splice(index, 1);
-
-      let newSelectedNodeId: string | null = parent.id;
-
-      const laidOutRoot = applyLayout(newRoot);
-
-      return {
-        ...state,
-        rootNode: laidOutRoot,
-        selectedNodeId: newSelectedNodeId,
-        editingNodeId: state.editingNodeId && deletedNodeIds.has(state.editingNodeId) ? null : state.editingNodeId
-      };
-    }
-    case 'LOAD_DATA': {
-      const copiedRoot = deepCopyAST(action.payload.rootNode);
-      if (copiedRoot) {
-        // 遍历树，为初始就折叠的节点计算 childrenCount
-        function traverseAndCount(node: MindMapNode) {
-          if (node.isCollapsed && node.children && node.children.length > 0) {
-            node.childrenCount = countAllDescendants(node);
+      case 'LOAD_DATA': {
+        const copiedRoot = deepCopyAST(action.payload.rootNode);
+        if (copiedRoot) {
+          // 遍历树，为初始就折叠的节点计算 childrenCount
+          function traverseAndCount(node: MindMapNode) {
+            if (node.isCollapsed && node.children && node.children.length > 0) {
+              node.childrenCount = countAllDescendants(node);
+            }
+            node.children.forEach(traverseAndCount);
           }
-          node.children.forEach(traverseAndCount);
+          traverseAndCount(copiedRoot);
         }
-        traverseAndCount(copiedRoot);
+        const laidOutData = copiedRoot ? applyLayout(copiedRoot, typeConfig) : null;
+        return { ...state, rootNode: laidOutData, selectedNodeId: laidOutData ? laidOutData.id : null, viewport: { x: (0 + CHILD_H_SPACING / 2), y: 0, zoom: INITIAL_ZOOM } };
       }
-      const laidOutData = copiedRoot ? applyLayout(copiedRoot) : null;
-      return { ...state, rootNode: laidOutData, selectedNodeId: laidOutData ? laidOutData.id : null, viewport: { x: (0 + CHILD_H_SPACING / 2), y: 0, zoom: INITIAL_ZOOM } };
-    }
-    case 'UPDATE_NODE_TEXT': {
-      const { nodeId, text } = action.payload;
-      const newRootNode = deepCopyAST(state.rootNode);
-      const nodeToUpdate = findNodeInAST(newRootNode, nodeId);
-      if (nodeToUpdate) {
-        nodeToUpdate.text = text;
-      }
-      // After updating text, we MUST re-layout to get new dimensions
-      const laidOutRoot = newRootNode ? applyLayout(newRootNode) : null;
-      return { ...state, rootNode: laidOutRoot };
-    }
-    case 'SET_SELECTED_NODE': return { ...state, selectedNodeId: action.payload.nodeId, editingNodeId: null };
-    case 'SET_EDITING_NODE': return { ...state, editingNodeId: action.payload.nodeId, selectedNodeId: action.payload.nodeId };
-    case 'SET_VIEWPORT': return { ...state, viewport: { ...state.viewport, ...action.payload } };
-    case 'SET_READ_ONLY': {
-      const newIsReadOnly = action.payload.isReadOnly;
-      if (state.isReadOnly === newIsReadOnly) {
-        return state;
-      }
-      return { ...state, isReadOnly: newIsReadOnly, editingNodeId: newIsReadOnly ? null : state.editingNodeId };
-    }
-    case 'TOGGLE_NODE_COLLAPSE': {
-      const { nodeId } = action.payload;
-      const newRootNode = deepCopyAST(state.rootNode);
-      const nodeToToggle = findNodeInAST(newRootNode, nodeId);
-      if (!nodeToToggle || !nodeToToggle.children || nodeToToggle.children.length === 0) return state;
-      nodeToToggle.isCollapsed = !nodeToToggle.isCollapsed;
-      if (nodeToToggle.isCollapsed) nodeToToggle.childrenCount = countAllDescendants(nodeToToggle); else nodeToToggle.childrenCount = 0;
-      const laidOutRoot = applyLayout(newRootNode);
-      return { ...state, rootNode: laidOutRoot };
-    }
-    case 'SET_SEARCH_TERM': {
-      const searchTerm = action.payload.toLowerCase().trim();
-      if (!searchTerm) {
-        return { ...state, currentSearchTerm: '', highlightedNodeIds: new Set(), searchMatches: [], currentMatchIndex: -1, currentMatchNodeId: null };
-      }
-      const newMatches: string[] = [];
-      const newHighlightedNodeIds = new Set<string>();
-      function traverseAndSearch(node: MindMapNode | null) {
-        if (!node) return;
-        if (node.text.toLowerCase().includes(searchTerm)) {
-          newMatches.push(node.id);
-          newHighlightedNodeIds.add(node.id);
+      case 'UPDATE_NODE_TEXT': {
+        const { nodeId, text } = action.payload;
+        const newRootNode = deepCopyAST(state.rootNode);
+        const nodeToUpdate = findNodeInAST(newRootNode, nodeId);
+        if (nodeToUpdate) {
+          nodeToUpdate.text = text;
+          if (!Array.isArray(nodeToUpdate.children)) {
+            throw new Error('节点 children 丢失！请检查数据流。');
+          }
         }
-        node.children.forEach(traverseAndSearch);
+        // After updating text, we MUST re-layout to get new dimensions
+        const laidOutRoot = newRootNode ? applyLayout(newRootNode, typeConfig) : null;
+        return { ...state, rootNode: laidOutRoot };
       }
-      traverseAndSearch(state.rootNode);
+      case 'SET_SELECTED_NODE': return { ...state, selectedNodeId: action.payload.nodeId, editingNodeId: null };
+      case 'SET_EDITING_NODE': return { ...state, editingNodeId: action.payload.nodeId, selectedNodeId: action.payload.nodeId };
+      case 'SET_VIEWPORT':
+        console.log('REDUCER SET_VIEWPORT', action.payload, 'prev', state.viewport);
+        return { ...state, viewport: { ...state.viewport, ...action.payload } };
+      case 'SET_READ_ONLY': {
+        const newIsReadOnly = action.payload.isReadOnly;
+        if (state.isReadOnly === newIsReadOnly) {
+          return state;
+        }
+        return { ...state, isReadOnly: newIsReadOnly, editingNodeId: newIsReadOnly ? null : state.editingNodeId };
+      }
+      case 'TOGGLE_NODE_COLLAPSE': {
+        const { nodeId } = action.payload;
+        const newRootNode = deepCopyAST(state.rootNode);
+        const nodeToToggle = findNodeInAST(newRootNode, nodeId);
+        if (!nodeToToggle || !nodeToToggle.children || nodeToToggle.children.length === 0) return state;
+        nodeToToggle.isCollapsed = !nodeToToggle.isCollapsed;
+        if (nodeToToggle.isCollapsed) nodeToToggle.childrenCount = countAllDescendants(nodeToToggle); else nodeToToggle.childrenCount = 0;
+        const laidOutRoot = applyLayout(newRootNode, typeConfig);
+        return { ...state, rootNode: laidOutRoot };
+      }
+      case 'SET_SEARCH_TERM': {
+        const searchTerm = action.payload.toLowerCase().trim();
+        if (!searchTerm) {
+          return { ...state, currentSearchTerm: '', highlightedNodeIds: new Set(), searchMatches: [], currentMatchIndex: -1, currentMatchNodeId: null };
+        }
+        const newMatches: string[] = [];
+        const newHighlightedNodeIds = new Set<string>();
+        function traverseAndSearch(node: MindMapNode | null) {
+          if (!node) return;
+          if (node.text.toLowerCase().includes(searchTerm)) {
+            newMatches.push(node.id);
+            newHighlightedNodeIds.add(node.id);
+          }
+          node.children.forEach(traverseAndSearch);
+        }
+        traverseAndSearch(state.rootNode);
 
-      const newIndex = newMatches.length > 0 ? 0 : -1;
-      const newCurrentMatchId = newIndex !== -1 ? newMatches[newIndex] : null;
+        const newIndex = newMatches.length > 0 ? 0 : -1;
+        const newCurrentMatchId = newIndex !== -1 ? newMatches[newIndex] : null;
 
-      return { ...state, currentSearchTerm: action.payload, searchMatches: newMatches, highlightedNodeIds: newHighlightedNodeIds, currentMatchIndex: newIndex, currentMatchNodeId: newCurrentMatchId };
+        return { ...state, currentSearchTerm: action.payload, searchMatches: newMatches, highlightedNodeIds: newHighlightedNodeIds, currentMatchIndex: newIndex, currentMatchNodeId: newCurrentMatchId };
+      }
+      case 'GO_TO_NEXT_MATCH': {
+        if (state.searchMatches.length === 0) return state;
+        const newIndex = (state.currentMatchIndex + 1) % state.searchMatches.length;
+        return { ...state, currentMatchIndex: newIndex, currentMatchNodeId: state.searchMatches[newIndex] };
+      }
+      case 'GO_TO_PREVIOUS_MATCH': {
+        if (state.searchMatches.length === 0) return state;
+        const newIndex = (state.currentMatchIndex - 1 + state.searchMatches.length) % state.searchMatches.length;
+        return { ...state, currentMatchIndex: newIndex, currentMatchNodeId: state.searchMatches[newIndex] };
+      }
+      default: return state;
     }
-    case 'GO_TO_NEXT_MATCH': {
-      if (state.searchMatches.length === 0) return state;
-      const newIndex = (state.currentMatchIndex + 1) % state.searchMatches.length;
-      return { ...state, currentMatchIndex: newIndex, currentMatchNodeId: state.searchMatches[newIndex] };
-    }
-    case 'GO_TO_PREVIOUS_MATCH': {
-      if (state.searchMatches.length === 0) return state;
-      const newIndex = (state.currentMatchIndex - 1 + state.searchMatches.length) % state.searchMatches.length;
-      return { ...state, currentMatchIndex: newIndex, currentMatchNodeId: state.searchMatches[newIndex] };
-    }
-    default: return state;
   }
 }
 
@@ -189,8 +193,8 @@ const initialHistoryState: HistoryState = {
   future: [],
 };
 
-// Higher-order reducer for history
-const undoable = (reducer: typeof mindMapReducer) => {
+type ReducerFn = (state: MindMapState, action: MindMapAction) => MindMapState;
+const undoable = (reducer: ReducerFn) => {
   // The new initial state for our history-aware reducer
   const initialHistoryState: HistoryState = {
     past: [],
@@ -248,6 +252,7 @@ const undoable = (reducer: typeof mindMapReducer) => {
 };
 
 
+const mindMapReducer = createMindMapReducer();
 const historyReducer = undoable(mindMapReducer);
 
 export function useMindMap(
@@ -255,6 +260,7 @@ export function useMindMap(
   initialDataProp?: any,
   onDataChangeDetailed?: DataChangeCallback,
   onDataChange?: (data: MindMapNode) => void,
+  typeConfig?: MindMapTypeConfig,
 ) {
   const [state, dispatch] = useReducer(historyReducer, undefined, () => historyReducer(initialHistoryState, { type: 'INIT_MAP' }));
 
@@ -289,13 +295,16 @@ export function useMindMap(
     }
   }, [onDataChangeDetailed]);
 
+  // 只在首次挂载时初始化，防御多次触发
+  const didInitRef = useRef(false);
   useEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
     const dataToLoad = initialDataProp || defaultRawData;
     const formattedData = transformToMindMapNode(dataToLoad);
     // LOAD_DATA should reset the history
     const initialAction = { type: 'LOAD_DATA', payload: { rootNode: formattedData } };
     const newState = mindMapReducer(initialMindMapState, initialAction as any);
-    
     dispatch({
       type: 'REPLACE_STATE',
       payload: { past: [], present: newState, future: [] }
@@ -315,7 +324,7 @@ export function useMindMap(
       );
       triggerDataChangeCallback(changeInfo);
     }
-  }, [initialDataProp, onDataChangeDetailed, createDataChangeInfo, triggerDataChangeCallback]);
+  }, []); // 依赖数组只留空，确保只初始化一次
 
   const { state: presentState, dispatch: historyDispatch } = { state: state.present, dispatch };
 
@@ -360,21 +369,27 @@ export function useMindMap(
     }, 0);
   }, [presentState.rootNode, historyDispatch, state, createDataChangeInfo, triggerDataChangeCallback, onDataChange]);
 
-  const setViewport = useCallback((viewportUpdate: Partial<Viewport>) => historyDispatch({ type: 'SET_VIEWPORT', payload: viewportUpdate }), []);
+  const setViewport = useCallback((viewportUpdate: Partial<Viewport>) => {
+    console.log('setViewport', viewportUpdate, 'before', state.present.viewport);
+    historyDispatch({ type: 'SET_VIEWPORT', payload: viewportUpdate });
+    setTimeout(() => {
+      console.log('setViewport', 'after', state.present.viewport);
+    }, 0);
+  }, [state.present.viewport]);
 
   const addNode = useCallback((text: string, parentId: string | null = null) => {
     // 保存操作前的状态
     const previousData = deepCopyAST(presentState.rootNode);
-    
+
     // 执行添加节点操作
     historyDispatch({ type: 'ADD_NODE', payload: { text, parentId } });
-    
+
     // 在下一个事件循环中获取更新后的状态并触发回调
     setTimeout(() => {
       // 获取更新后的状态
       const updatedState = historyReducer(state, { type: 'ADD_NODE', payload: { text, parentId } });
       const currentData = updatedState.present.rootNode;
-      
+
       // 查找新添加的节点的辅助函数
       const findNewNode = (node: MindMapNode): MindMapNode | null => {
         if (node.text === text) {
@@ -393,7 +408,7 @@ export function useMindMap(
         }
         return null;
       };
-      
+
       const newNode = currentData ? findNewNode(currentData) : null;
       let parentResult: { node: MindMapNode; parent: MindMapNode | null } | null = null;
       if (newNode && currentData) {
@@ -403,7 +418,7 @@ export function useMindMap(
       const parentIdChain = newNode && parentResult?.parent ? (findIdChain(currentData, parentResult.parent.id) || undefined) : undefined;
       const currentNode = newNode || undefined;
       const parentNode = parentResult?.parent || undefined;
-      
+
       const idChainNodes = findNodeChain(currentData, idChain);
       const parentIdChainNodes = findNodeChain(currentData, parentIdChain);
       const changeInfo = {
@@ -424,7 +439,7 @@ export function useMindMap(
         idChainNodes,
         parentIdChainNodes,
       };
-      
+
       triggerDataChangeCallback(changeInfo);
       if (onDataChange && currentData) onDataChange(currentData);
     }, 0);
@@ -472,7 +487,10 @@ export function useMindMap(
 
   const setSelectedNode = useCallback((nodeId: string | null) => historyDispatch({ type: 'SET_SELECTED_NODE', payload: { nodeId } }), []);
   const setEditingNode = useCallback((nodeId: string | null) => { if (!presentState.isReadOnly || nodeId === null) historyDispatch({ type: 'SET_EDITING_NODE', payload: { nodeId } }); }, [presentState.isReadOnly]);
-  const pan = useCallback((dx: number, dy: number) => setViewport({ x: presentState.viewport.x + dx, y: presentState.viewport.y + dy }), []);
+  const pan = useCallback((dx: number, dy: number) => {
+    console.log('pan', dx, dy, presentState.viewport);
+    setViewport({ x: presentState.viewport.x + dx, y: presentState.viewport.y + dy });
+  }, [presentState.viewport, setViewport]);
 
   const zoom = useCallback((delta: number, mousePosition: Point) => {
     const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, presentState.viewport.zoom * (1 - delta * ZOOM_SENSITIVITY)));
@@ -496,7 +514,9 @@ export function useMindMap(
   const zoomOut = useCallback(() => zoomWithRatio(1 / 1.2), [zoomWithRatio]);
 
   const fitView = useCallback((centerOnly = false) => {
-    if (!presentState.rootNode || !canvasSize) return;
+    console.log('fitView', centerOnly, presentState.rootNode, canvasSize);
+    if (!presentState.rootNode) { console.log('fitView return: no rootNode'); return; }
+    if (!canvasSize) { console.log('fitView return: no canvasSize'); return; }
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     function getBoundsRecursive(node: MindMapNode) {
       minX = Math.min(minX, node.position.x);
@@ -508,24 +528,27 @@ export function useMindMap(
     getBoundsRecursive(presentState.rootNode);
     const contentWidth = maxX - minX;
     const contentHeight = maxY - minY;
-    if (contentWidth <= 0 || contentHeight <= 0) return;
+    if (contentWidth <= 0 || contentHeight <= 0) { console.log('fitView return: invalid content size'); return; }
     const padding = 50;
     const newZoom = centerOnly ? presentState.viewport.zoom : Math.min((canvasSize.width - padding * 2) / contentWidth, (canvasSize.height - padding * 2) / contentHeight, MAX_ZOOM);
     const newX = (canvasSize.width / 2) - ((minX + contentWidth / 2) * newZoom);
     const newY = (canvasSize.height / 2) - ((minY + contentHeight / 2) * newZoom);
+    console.log('fitView computed', { newX, newY, newZoom });
     setViewport({ x: newX, y: newY, zoom: newZoom });
   }, [presentState.rootNode, canvasSize, presentState.viewport.zoom, setViewport]);
 
   const centerView = useCallback(() => {
-    if (!canvasSize || !state.present.rootNode) return;
+    console.log('centerView', state.present.selectedNodeId, state.present.rootNode, canvasSize);
+    if (!canvasSize) { console.log('centerView return: no canvasSize'); return; }
+    if (!state.present.rootNode) { console.log('centerView return: no rootNode'); return; }
     const nodeToCenterId = state.present.selectedNodeId || state.present.rootNode.id;
     const node = findNodeInAST(state.present.rootNode, nodeToCenterId);
-    if (node) {
-      const nodeCenter = { x: node.position.x + node.width / 2, y: node.position.y + node.height / 2 };
-      const newX = canvasSize.width / 2 - nodeCenter.x * state.present.viewport.zoom;
-      const newY = canvasSize.height / 2 - nodeCenter.y * state.present.viewport.zoom;
-      setViewport({ x: newX, y: newY });
-    }
+    if (!node) { console.log('centerView return: no node to center'); return; }
+    const nodeCenter = { x: node.position.x + node.width / 2, y: node.position.y + node.height / 2 };
+    const newX = canvasSize.width / 2 - nodeCenter.x * state.present.viewport.zoom;
+    const newY = canvasSize.height / 2 - nodeCenter.y * state.present.viewport.zoom;
+    console.log('centerView computed', { newX, newY });
+    setViewport({ x: newX, y: newY });
   }, [canvasSize, state.present.rootNode, state.present.selectedNodeId, state.present.viewport.zoom, setViewport]);
 
   const setSearchTerm = useCallback((term: string) => historyDispatch({ type: 'SET_SEARCH_TERM', payload: term }), []);
@@ -738,5 +761,6 @@ export function useMindMap(
     zoomIn,
     zoomOut,
     centerView,
+    typeConfig
   };
 }

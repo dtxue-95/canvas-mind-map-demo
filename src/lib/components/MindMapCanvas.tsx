@@ -42,6 +42,10 @@ interface MindMapCanvasProps {
    * 自定义右键菜单内容生成函数
    */
   getContextMenuGroups?: (node: MindMapNode | null, state: MindMapState) => ContextMenuGroup[];
+  /**
+   * 拖动状态变化回调（用于外部阻断自动居中）
+   */
+  onDraggingChange?: (dragging: boolean) => void;
 }
 
 // Helper function to find the node at a given point in the AST
@@ -69,7 +73,7 @@ function findNodeInASTFromPoint(
 
 
 
-const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground, enableContextMenu = true, getContextMenuGroups }) => {
+const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground, enableContextMenu = true, getContextMenuGroups, onDraggingChange }) => {
   const {
     state, setSelectedNode, setEditingNode, zoom, pan,
     updateNodeText, addNode: mindMapAddNode, deleteNode: mindMapDeleteNode,
@@ -82,15 +86,15 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
   } = state;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDraggingNodeRef = useRef(false);
+  const lastMousePositionRef = useRef<Point | null>(null);
   const [isDraggingNode, setIsDraggingNode] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
-  const [dragStartPoint, setDragStartPoint] = useState<Point | null>(null);
-  const [dragStartNodePosition, setDragStartNodePosition] = useState<Point | null>(null);
-  const [lastMousePosition, setLastMousePosition] = useState<Point | null>(null);
 
   const [currentCanvasSize, setCurrentCanvasSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [canvasBounds, setCanvasBounds] = useState<DOMRect | null>(null);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; node: MindMapNode | null }>({ visible: false, x: 0, y: 0, node: null });
+  const [editingNodeDynamicWidth, setEditingNodeDynamicWidth] = useState<number | null>(null);
 
 
   const getMenuCommandState = (nodeId: string) => ({
@@ -144,7 +148,8 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       highlightIds.has(node.id),
       node.id === currentMatchId,
       searchTerm,
-      mergedStyle // 传递自定义样式
+      mergedStyle, // 传递自定义样式
+      mindMapHookInstance.typeConfig // 新增：透传 typeConfig
     );
 
     // 2. If the node is not collapsed and has children, draw connections
@@ -216,13 +221,68 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     ctx.translate(viewport.x, viewport.y);
     ctx.scale(viewport.zoom, viewport.zoom);
 
-    // Start drawing from the rootNode
-    if (rootNode) {
-      drawBranchRecursive(ctx, rootNode, viewport, selectedNodeId, editingNodeId, currentSearchTerm, highlightedNodeIds, currentMatchNodeId);
+    // 编辑时不绘制正在编辑的节点（避免重影）
+    const editingId = editingNodeId;
+    function drawBranchRecursiveNoEdit(
+      ctx: CanvasRenderingContext2D,
+      node: MindMapNode | null
+    ) {
+      if (!node) return;
+      const isEditing = node.id === editingId;
+      // 1. 只跳过 drawNode，其他都要执行
+      if (!isEditing) {
+        const mergedStyle = {
+          ...(node.style || {}),
+          ...(getNodeStyle ? getNodeStyle(node, state) : {})
+        };
+        drawNode(
+          ctx,
+          node,
+          node.id === selectedNodeId,
+          highlightedNodeIds.has(node.id),
+          node.id === currentMatchNodeId,
+          currentSearchTerm,
+          mergedStyle,
+          mindMapHookInstance.typeConfig
+        );
+      }
+      // 2. 父节点到子节点的连线、折叠按钮始终要画
+      if (!node.isCollapsed && node.children && node.children.length > 0) {
+        for (const childNode of node.children) {
+          if (childNode) {
+            // 连线起点：如果当前节点是编辑节点，用 editingNodeDynamicWidth，否则用 node.width
+            const nodeRightX = isEditing && editingNodeDynamicWidth != null
+              ? node.position.x + editingNodeDynamicWidth
+              : node.position.x + node.width;
+            drawConnection(
+              ctx,
+              { x: nodeRightX, y: node.position.y + node.height / 2 },
+              { x: childNode.position.x, y: childNode.position.y + childNode.height / 2 }
+            );
+          }
+        }
+      }
+      if (node.children && node.children.length > 0) {
+        drawCollapseButton(ctx, node, node.isCollapsed, node.childrenCount);
+      }
+      // 3. 递归渲染子节点
+      if (!node.isCollapsed && node.children && node.children.length > 0) {
+        for (const childNode of node.children) {
+          if (childNode) {
+            drawBranchRecursiveNoEdit(ctx, childNode);
+          }
+        }
+      }
     }
-
+    if (rootNode) {
+      drawBranchRecursiveNoEdit(ctx, rootNode);
+    }
     ctx.restore();
-  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, currentMatchNodeId, isReadOnly, drawBranchRecursive, canvasBackgroundColor, showDotBackground]);
+  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, currentMatchNodeId, isReadOnly, getNodeStyle, canvasBackgroundColor, showDotBackground, state, mindMapHookInstance.typeConfig, editingNodeDynamicWidth]);
+
+  useEffect(() => {
+    console.log('MindMapCanvas render viewport', viewport);
+  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, currentMatchNodeId, isReadOnly, getNodeStyle, canvasBackgroundColor, showDotBackground, state, mindMapHookInstance.typeConfig]);
 
   const getMousePositionOnCanvas = (e: React.MouseEvent): Point => {
     const canvas = canvasRef.current;
@@ -237,99 +297,65 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     const mousePos = getMousePositionOnCanvas(e);
-    setLastMousePosition(mousePos);
+    lastMousePositionRef.current = mousePos;
     const worldPos = screenToWorld(mousePos, viewport);
 
     // Check for click on collapse/expand button first by traversing
     let buttonClickedProcessed = false;
     function checkCollapseButtonRecursive(node: MindMapNode | null): boolean {
         if (!node) return false;
-        
-        // Check children first for "topmost" button, but only if parent is expanded
         if (!node.isCollapsed) {
           for (const child of node.children) {
               if (checkCollapseButtonRecursive(child)) return true;
           }
         }
-
-        if (node.children && node.children.length > 0) { // Check current node's button
+        if (node.children && node.children.length > 0) {
             const buttonCenterX = node.position.x + node.width;
             const buttonCenterY = node.position.y + node.height / 2;
             const distSq = (worldPos.x - buttonCenterX) ** 2 + (worldPos.y - buttonCenterY) ** 2;
             if (distSq <= COLLAPSE_BUTTON_RADIUS ** 2) {
               toggleNodeCollapse(node.id);
-              return true; // Button click processed
+              return true;
             }
         }
         return false;
     }
-
     if (checkCollapseButtonRecursive(rootNode)) {
         buttonClickedProcessed = true;
     }
-    
-    if (buttonClickedProcessed) return; // If button was clicked, stop further processing
-
+    if (buttonClickedProcessed) return;
     const clickedNode = findNodeInASTFromPoint(rootNode, worldPos, viewport);
-
     if (clickedNode) {
       if (editingNodeId !== clickedNode.id) {
-        setEditingNode(null); // Stop editing if clicking on a different node or same node non-edit area
+        setEditingNode(null);
       }
       setSelectedNode(clickedNode.id);
-      if (!isReadOnly) {
-        setIsDraggingNode(true);
-        setDragStartPoint(worldPos);
-        setDragStartNodePosition({ ...clickedNode.position });
-      } else { // If read-only, clicking a node doesn't start drag, but allows panning if background is dragged
-        setIsPanning(true); 
-      }
     } else {
-      if (editingNodeId) { // Clicked on background while editing
+      if (editingNodeId) {
         setEditingNode(null);
       }
       setSelectedNode(null);
-      setIsPanning(true);
     }
+    setIsDraggingNode(true); // 仅用于 UI
+    isDraggingNodeRef.current = true;
+    if (typeof onDraggingChange === 'function') onDraggingChange(true);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!lastMousePosition) return;
+    if (!lastMousePositionRef.current) return;
     const mousePos = getMousePositionOnCanvas(e);
-    const worldPos = screenToWorld(mousePos, viewport);
-
-    if (isDraggingNode && selectedNodeId && dragStartPoint && dragStartNodePosition && !isReadOnly) {
-      const selectedNodeInstance = findNodeInAST(rootNode, selectedNodeId);
-      if (!selectedNodeInstance) return;
-
-      if (editingNodeId === selectedNodeId) { // If was editing, stop editing when drag starts
-        setEditingNode(null);
-      }
-      const dx = worldPos.x - dragStartPoint.x;
-      const dy = worldPos.y - dragStartPoint.y;
-      
-      // Basic threshold check to differentiate click from drag
-      const dragDistance = Math.sqrt(
-         (worldPos.x - dragStartPoint.x) ** 2 + 
-         (worldPos.y - dragStartPoint.y) ** 2
-      );
-
-      if (dragDistance > DRAG_THRESHOLD / viewport.zoom ) { // Apply threshold
-          pan(dx, dy); // 临时用 pan 替代，实际应实现节点拖拽
-      }
-    } else if (isPanning) {
-      const dx = mousePos.x - lastMousePosition.x;
-      const dy = mousePos.y - lastMousePosition.y;
+    if (isDraggingNodeRef.current) {
+      const dx = (mousePos.x - lastMousePositionRef.current.x) / viewport.zoom;
+      const dy = (mousePos.y - lastMousePositionRef.current.y) / viewport.zoom;
       pan(dx, dy);
     }
-    setLastMousePosition(mousePos);
+    lastMousePositionRef.current = mousePos;
   };
 
   const handleMouseUp = () => {
     setIsDraggingNode(false);
-    setIsPanning(false);
-    setDragStartPoint(null);
-    setDragStartNodePosition(null);
+    isDraggingNodeRef.current = false;
+    if (typeof onDraggingChange === 'function') onDraggingChange(false);
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
@@ -581,6 +607,8 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
           onSave={handleNodeEditSave}
           onCancel={handleNodeEditCancel}
           canvasBounds={canvasBounds}
+          typeConfig={mindMapHookInstance.typeConfig}
+          setDynamicWidth={setEditingNodeDynamicWidth}
         />
       )}
     </div>
