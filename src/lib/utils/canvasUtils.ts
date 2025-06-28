@@ -154,7 +154,7 @@ export function drawNode(
   ctx: CanvasRenderingContext2D,
   node: MindMapNode,
   isSelected: boolean,
-  isEditing?: boolean,
+  
   isHighlighted?: boolean,
   isExactMatch?: boolean,
   currentSearchTerm?: string,

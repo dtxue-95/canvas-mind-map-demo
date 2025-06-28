@@ -8,7 +8,7 @@ import { CANVAS_BACKGROUND_COLOR, DRAG_THRESHOLD, NEW_NODE_TEXT, COLLAPSE_BUTTON
 import NodeEditInput from './NodeEditInput';
 import { findNodeInAST, findNodeAndParentInAST } from '../utils/nodeUtils';
 import ContextMenu, { ContextMenuGroup } from './ContextMenu';
-import { FaPlus, FaTrash, FaChevronDown, FaChevronUp, FaExpand, FaCompress, FaSitemap } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaChevronDown, FaChevronUp, FaExpand, FaCompress } from 'react-icons/fa';
 import { FiCrosshair, FiBox } from 'react-icons/fi';
 import { addChildNodeCommand } from '../commands/addChildNodeCommand';
 import { addSiblingNodeCommand } from '../commands/addSiblingNodeCommand';
@@ -140,7 +140,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       ctx,
       node, // Pass the AST node
       node.id === currentSelectedNodeId,
-      node.id === currentEditingNodeId,
+      // node.id === currentEditingNodeId,
       highlightIds.has(node.id),
       node.id === currentMatchId,
       searchTerm,
@@ -325,7 +325,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     setLastMousePosition(mousePos);
   };
 
-  const handleMouseUp = (e: React.MouseEvent) => {
+  const handleMouseUp = () => {
     setIsDraggingNode(false);
     setIsPanning(false);
     setDragStartPoint(null);

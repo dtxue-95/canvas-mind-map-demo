@@ -141,7 +141,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ commands, handlePosition, onPositionC
               <button
                 key={command.id}
                 onClick={command.action}
-                disabled={command.disabled}
+                disabled={command.disabled as boolean}
                 title={command.title}
                 className="flex flex-col items-center justify-center w-20 h-16 rounded-lg transition-colors duration-200 text-gray-600 disabled:text-gray-300 hover:bg-gray-200/70 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
               >

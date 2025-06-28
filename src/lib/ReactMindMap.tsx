@@ -10,7 +10,7 @@ import { worldToScreen } from './utils/canvasUtils';
 import { getDefaultTopToolbarConfig, getDefaultBottomToolbarConfig } from './defaultConfig';
 import { FiMaximize, FiMinimize } from 'react-icons/fi';
 import Minimap from './components/Minimap';
-import { ContextMenuGroup } from './lib/components/ContextMenu';
+import { ContextMenuGroup } from './components/ContextMenu';
 
 // Import all commands
 import { undoCommand } from './commands/undoCommand';
@@ -263,7 +263,7 @@ export default function ReactMindMap({
       ...built,
       ...custom.map(btn => {
         if (typeof btn.disabled === 'function') {
-          return { ...btn, disabled: (btn.disabled as (state: typeof state) => boolean)(state) };
+          return { ...btn, disabled: (btn.disabled as (state: MindMapState) => boolean)(state) };
         }
         return btn;
       })
@@ -367,6 +367,7 @@ export default function ReactMindMap({
           zoomPercentage={zoomPercentage}
           handlePosition={bottomHandlePosition}
           onPositionChange={updateBottomHandlePosition}
+          state={state}
         />
       )}
       {isSearchVisible && (

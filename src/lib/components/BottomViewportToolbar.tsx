@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ToolbarButtonConfig } from '../types';
+import { ToolbarButtonConfig, MindMapState } from '../types';
 import { FaChevronLeft, FaTimes } from 'react-icons/fa';
 
 const HANDLE_WIDTH = 32; // px
@@ -10,13 +10,15 @@ interface BottomViewportToolbarProps {
   zoomPercentage: number;
   handlePosition: { x: number; y: number };
   onPositionChange: (newPos: { x: number; y: number }) => void;
+  state: MindMapState;
 }
 
 const BottomViewportToolbar: React.FC<BottomViewportToolbarProps> = ({ 
   commands, 
   zoomPercentage,
   handlePosition,
-  onPositionChange
+  onPositionChange,
+  state
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
@@ -95,8 +97,8 @@ const BottomViewportToolbar: React.FC<BottomViewportToolbarProps> = ({
   const IconButton: React.FC<{ command: ToolbarButtonConfig }> = ({ command }) => (
     <div className="group relative flex items-center">
       <button
-        onClick={command.action}
-        disabled={command.disabled}
+        onClick={() => command.action()}
+        disabled={typeof command.disabled === 'function' ? command.disabled(state) : command.disabled}
         className="
           transition-all duration-200 hover:scale-110
           bg-gray-200/50 hover:bg-gray-300/70
