@@ -181,36 +181,88 @@ const mindMapProps = {
 <ReactMindMap {...mindMapProps} />
 ```
 
-### 高级配置
+### 高级配置 - 详细数据变更回调
 ```typescript
-const advancedProps = {
-  // 自定义工具栏按钮
-  topToolbarCustomButtons: [
-    {
-      id: 'custom-save',
-      label: '保存',
-      icon: FaSave,
-      action: () => saveData(),
-      title: '保存当前思维导图'
-    }
-  ],
+import { ReactMindMap, type DataChangeInfo, OperationType } from './lib';
+
+// 处理详细的数据变更回调
+const handleDataChangeDetailed = (changeInfo: DataChangeInfo) => {
+  console.log('数据变更详情:', changeInfo);
   
-  // 自定义右键菜单
-  getContextMenuGroups: (node, state) => {
-    if (!node) {
-      return [
-        { actions: [{ key: 'blank', label: '空白菜单', onClick: () => alert('空白处') }] }
-      ];
-    }
-    return [
-      {
-        actions: [
-          { key: 'edit', label: '自定义编辑', onClick: () => alert('编辑' + node.text) }
-        ]
-      }
-    ];
+  // 根据操作类型进行不同的处理
+  switch (changeInfo.operationType) {
+    case OperationType.ADD_NODE:
+      console.log('新增节点:', changeInfo.addedNodes);
+      // 可以获取新增的节点信息
+      break;
+    case OperationType.DELETE_NODE:
+      console.log('删除节点:', changeInfo.deletedNodes);
+      // 可以获取删除的节点信息
+      break;
+    case OperationType.UPDATE_NODE_TEXT:
+      console.log('更新节点:', changeInfo.updatedNodes);
+      // 可以获取更新的节点信息
+      break;
+    case OperationType.TOGGLE_NODE_COLLAPSE:
+      console.log('切换折叠状态:', changeInfo.updatedNodes);
+      break;
+    case OperationType.UNDO:
+      console.log('撤销操作');
+      break;
+    case OperationType.REDO:
+      console.log('重做操作');
+      break;
+    case OperationType.LOAD_DATA:
+      console.log('加载数据');
+      break;
   }
+  
+  // 获取完整的当前数据
+  console.log('当前完整数据:', changeInfo.currentData);
+  
+  // 获取操作前的数据（用于撤销/重做）
+  console.log('操作前数据:', changeInfo.previousData);
+  
+  // 获取受影响的节点ID
+  console.log('受影响的节点:', changeInfo.affectedNodeIds);
 };
+
+const mindMapProps = {
+  initialData: data,
+  onDataChange: (newData) => setData(newData), // 简单的数据变更回调
+  onDataChangeDetailed: handleDataChangeDetailed, // 详细的数据变更回调
+  // ... 其他配置
+};
+
+<ReactMindMap {...mindMapProps} />
+```
+
+### 数据变更信息结构
+```typescript
+interface DataChangeInfo {
+  operationType: OperationType;        // 操作类型
+  timestamp: number;                   // 操作时间戳
+  affectedNodeIds?: string[];          // 受影响的节点ID列表
+  addedNodes?: MindMapNode[];          // 新增的节点列表
+  deletedNodes?: MindMapNode[];        // 删除的节点列表
+  updatedNodes?: MindMapNode[];        // 更新的节点列表
+  previousData?: MindMapNode | null;   // 操作前的完整数据
+  currentData: MindMapNode | null;     // 操作后的完整数据
+  description: string;                 // 操作描述
+}
+```
+
+### 操作类型枚举
+```typescript
+enum OperationType {
+  ADD_NODE = 'ADD_NODE',                    // 添加节点
+  DELETE_NODE = 'DELETE_NODE',              // 删除节点
+  UPDATE_NODE_TEXT = 'UPDATE_NODE_TEXT',    // 更新节点文本
+  TOGGLE_NODE_COLLAPSE = 'TOGGLE_NODE_COLLAPSE', // 切换节点折叠状态
+  UNDO = 'UNDO',                            // 撤销操作
+  REDO = 'REDO',                            // 重做操作
+  LOAD_DATA = 'LOAD_DATA',                  // 加载数据
+}
 ```
 
 ## 快捷键

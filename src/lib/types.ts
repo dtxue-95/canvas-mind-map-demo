@@ -127,6 +127,51 @@ export interface MindMapState {
   currentMatchNodeId: string | null;
 }
 
+// 操作类型枚举
+export enum OperationType {
+  ADD_NODE = 'ADD_NODE',
+  DELETE_NODE = 'DELETE_NODE',
+  UPDATE_NODE_TEXT = 'UPDATE_NODE_TEXT',
+  TOGGLE_NODE_COLLAPSE = 'TOGGLE_NODE_COLLAPSE',
+  UNDO = 'UNDO',
+  REDO = 'REDO',
+  LOAD_DATA = 'LOAD_DATA',
+}
+
+// 数据变更信息
+export interface DataChangeInfo {
+  operationType: OperationType;
+  timestamp: number;
+  // 操作相关的节点信息
+  affectedNodeIds?: string[];
+  // 新增的节点信息
+  addedNodes?: MindMapNode[];
+  // 删除的节点信息
+  deletedNodes?: MindMapNode[];
+  // 更新的节点信息
+  updatedNodes?: MindMapNode[];
+  // 操作前的完整数据（用于撤销/重做）
+  previousData?: MindMapNode | null;
+  // 操作后的完整数据
+  currentData: MindMapNode | null;
+  // 操作描述
+  description: string;
+  // 新增：当前操作节点的 id 链路（从根到当前节点）
+  idChain?: string[];
+  // 新增：当前节点父节点的 id 链路（从根到父节点）
+  parentIdChain?: string[];
+  // 新增：当前操作节点的详细信息
+  currentNode?: MindMapNode;
+  // 新增：当前节点的父节点详细信息
+  parentNode?: MindMapNode;
+  // 新增：当前操作节点的 id 链路对应的节点对象数组（从根到当前节点）
+  idChainNodes?: MindMapNode[];
+  // 新增：当前节点父节点的 id 链路对应的节点对象数组（从根到父节点）
+  parentIdChainNodes?: MindMapNode[];
+}
+
+// 数据变更回调函数类型
+export type DataChangeCallback = (changeInfo: DataChangeInfo) => void;
 
 // 节点编辑输入组件属性
 export interface NodeEditInputProps {

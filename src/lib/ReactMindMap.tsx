@@ -4,7 +4,7 @@ import MindMapCanvas from './components/MindMapCanvas';
 import BottomViewportToolbar from './components/BottomViewportToolbar';
 import SearchWidget from './components/SearchWidget';
 import { useMindMap } from './hooks/useMindMap';
-import { MindMapNode, Command, Point, ToolbarButtonConfig, MindMapState } from './types';
+import { MindMapNode, Command, Point, ToolbarButtonConfig, MindMapState, DataChangeCallback } from './types';
 import { findNodeInAST } from './utils/nodeUtils';
 import { worldToScreen } from './utils/canvasUtils';
 import { getDefaultTopToolbarConfig, getDefaultBottomToolbarConfig } from './defaultConfig';
@@ -53,6 +53,11 @@ export interface ReactMindMapProps {
   readOnly?: boolean;
   onDataChange?: (data: MindMapNode) => void;
   /**
+   * 数据变更回调函数，提供详细的操作信息
+   * @param changeInfo 数据变更信息，包含操作类型、变更的节点、完整数据等
+   */
+  onDataChangeDetailed?: DataChangeCallback;
+  /**
    * 顶部工具条自定义按钮（追加到末尾）
    */
   topToolbarCustomButtons?: ToolbarButtonConfig[];
@@ -95,7 +100,8 @@ export default function ReactMindMap({
   showTopToolbar = true,
   showBottomToolbar = true,
   readOnly = true,
-  // onDataChange,
+  onDataChange,
+  onDataChangeDetailed,
   topToolbarCustomButtons,
   bottomToolbarCustomButtons,
   getNodeStyle,
@@ -108,7 +114,7 @@ export default function ReactMindMap({
   const appContainerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
-  const mindMapHook = useMindMap(canvasSize, initialData);
+  const mindMapHook = useMindMap(canvasSize, initialData, onDataChangeDetailed, onDataChange);
   const { 
     state, 
     pan, 
@@ -132,14 +138,6 @@ export default function ReactMindMap({
   const [bottomHandlePosition, setBottomHandlePosition] = useState({ x: 0, y: 0 });
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-
-  // On initial mount, if the `readOnly` prop is explicitly false, set the component to editable.
-  useEffect(() => {
-    if (readOnly === false) {
-      toggleReadOnlyMode(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     const updateSize = () => {
