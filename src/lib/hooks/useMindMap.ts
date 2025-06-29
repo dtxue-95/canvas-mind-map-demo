@@ -203,29 +203,55 @@ const undoable = (reducer: ReducerFn) => {
     future: [],
   };
 
+  // 新增：全局 isReadOnly 状态
+  let globalIsReadOnly = initialMindMapState.isReadOnly;
+
+  // 新增：全局初始 rootNode 数据
+  let globalInitialRootNode: MindMapNode | null = null;
+
   return (state: HistoryState = initialHistoryState, action: MindMapAction | { type: 'UNDO' } | { type: 'REDO' }): HistoryState => {
     const { past, present, future } = state;
 
+    // 只读切换时，更新全局 isReadOnly
+    if (action.type === 'SET_READ_ONLY') {
+      globalIsReadOnly = (action as any).payload.isReadOnly;
+    }
+    // 记录初始 rootNode
+    if (action.type === 'LOAD_DATA' && action.payload && action.payload.rootNode) {
+      globalInitialRootNode = deepCopyAST(action.payload.rootNode);
+    }
+
+    function ensureRootNode(state: MindMapState): MindMapState {
+      if (!state.rootNode && globalInitialRootNode) {
+        return { ...state, rootNode: deepCopyAST(globalInitialRootNode), selectedNodeId: globalInitialRootNode.id };
+      }
+      return state;
+    }
+
     switch (action.type) {
-      case 'UNDO':
+      case 'UNDO': {
         if (past.length === 0) return state;
-        const previous = past[past.length - 1];
+        let previous = { ...past[past.length - 1], isReadOnly: globalIsReadOnly };
+        previous = ensureRootNode(previous);
         const newPast = past.slice(0, past.length - 1);
         return {
           past: newPast,
           present: previous,
-          future: [present, ...future],
+          future: [{ ...present, isReadOnly: globalIsReadOnly }, ...future],
         };
-      case 'REDO':
+      }
+      case 'REDO': {
         if (future.length === 0) return state;
-        const next = future[0];
+        let next = { ...future[0], isReadOnly: globalIsReadOnly };
+        next = ensureRootNode(next);
         const newFuture = future.slice(1);
         return {
-          past: [...past, present],
+          past: [...past, { ...present, isReadOnly: globalIsReadOnly }],
           present: next,
           future: newFuture,
         };
-      default:
+      }
+      default: {
         // These actions should not be part of the undo history
         const nonUndoableActions = new Set([
           'SET_SELECTED_NODE', 'SET_EDITING_NODE', 'SET_VIEWPORT', 'SET_READ_ONLY',
@@ -233,21 +259,26 @@ const undoable = (reducer: ReducerFn) => {
         ]);
 
         const newPresent = reducer(present, action as MindMapAction);
+        // 始终保持 isReadOnly 为全局状态
+        newPresent.isReadOnly = globalIsReadOnly;
+        // 任何历史快照都不允许 rootNode 为空
+        const safePresent = ensureRootNode(newPresent);
 
-        if (present === newPresent) {
+        if (present === safePresent) {
           return state;
         }
 
         if (nonUndoableActions.has(action.type)) {
-          return { past, present: newPresent, future };
+          return { past, present: safePresent, future };
         }
 
         // For undoable actions, clear the future
         return {
-          past: [...past, present],
-          present: newPresent,
+          past: [...past, { ...present, isReadOnly: globalIsReadOnly }],
+          present: safePresent,
           future: [],
         };
+      }
     }
   };
 };
@@ -556,7 +587,18 @@ export function useMindMap(
   const toggleReadOnlyMode = useCallback((value?: boolean) => {
     const newIsReadOnly = value === undefined ? !presentState.isReadOnly : value;
     historyDispatch({ type: 'SET_READ_ONLY', payload: { isReadOnly: newIsReadOnly } });
-  }, [presentState.isReadOnly]);
+    // 修复：切换为编辑模式时若 rootNode 为空自动初始化
+    if (!newIsReadOnly && !presentState.rootNode) {
+      const dataToLoad = initialDataProp || defaultRawData;
+      const formattedData = transformToMindMapNode(dataToLoad);
+      const initialAction = { type: 'LOAD_DATA', payload: { rootNode: formattedData } };
+      const newState = mindMapReducer(initialMindMapState, initialAction as any);
+      historyDispatch({
+        type: 'REPLACE_STATE',
+        payload: { past: [], present: newState, future: [] }
+      } as any);
+    }
+  }, [presentState.isReadOnly, presentState.rootNode, historyDispatch, initialDataProp]);
   const toggleNodeCollapse = useCallback((nodeId: string) => {
     const previousData = deepCopyAST(presentState.rootNode);
     const nodeToToggle = previousData ? findNodeInAST(previousData, nodeId) : null;
