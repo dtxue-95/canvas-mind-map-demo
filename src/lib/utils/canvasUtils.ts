@@ -161,13 +161,13 @@ export function calculateNodeDimensions(text: string, nodeType?: string, typeCon
 
 // 内置类型标签样式配置
 const BUILTIN_TYPE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  rootNode: { label: '根', color: '#8e8e93', bg: '#f4f4f7' },
+  rootNode: { label: '需求', color: '#8e8e93', bg: '#f4f4f7' },
   moduleNode: { label: '模块', color: '#34c759', bg: '#eafaf1' },
   testPointNode: { label: '测试点', color: '#ff9500', bg: '#fff7e6' },
   caseNode: { label: '用例', color: '#007aff', bg: '#e6f0ff' },
-  preconditionNode: { label: '前置', color: '#af52de', bg: '#f6eaff' },
+  preconditionNode: { label: '前置条件', color: '#af52de', bg: '#f6eaff' },
   stepNode: { label: '步骤', color: '#32ade6', bg: '#e6faff' },
-  resultNode: { label: '预期', color: '#ff3b30', bg: '#fff0ef' },
+  resultNode: { label: '预期结果', color: '#ff3b30', bg: '#fff0ef' },
 };
 
 /**
