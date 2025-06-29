@@ -29,7 +29,7 @@ function createMindMapReducer(typeConfig?: any) {
         return state;
       case 'ADD_NODE': {
         if (!state.rootNode) return state; // Or handle creating a root node
-        const { text, parentId } = (action as { type: 'ADD_NODE', payload: AddNodePayload }).payload;
+        const { text, parentId, nodeType } = (action as any).payload;
         const newRoot = deepCopyAST(state.rootNode);
         const parent = parentId ? findNodeInAST(newRoot, parentId) : newRoot;
         if (!parent) {
@@ -45,6 +45,7 @@ function createMindMapReducer(typeConfig?: any) {
           color: NODE_DEFAULT_COLOR,
           textColor: NODE_TEXT_COLOR,
           isCollapsed: false,
+          ...(nodeType ? { nodeType } : {}),
         };
         parent.children.push(newNode);
         const laidOutRoot = applyLayout(newRoot, typeConfig);
@@ -377,17 +378,17 @@ export function useMindMap(
     }, 0);
   }, [state.present.viewport]);
 
-  const addNode = useCallback((text: string, parentId: string | null = null) => {
+  const addNode = useCallback((text: string, parentId: string | null = null, nodeType?: string) => {
     // 保存操作前的状态
     const previousData = deepCopyAST(presentState.rootNode);
 
-    // 执行添加节点操作
-    historyDispatch({ type: 'ADD_NODE', payload: { text, parentId } });
+    // 执行添加节点操作，支持 nodeType
+    historyDispatch({ type: 'ADD_NODE', payload: { text, parentId, nodeType } });
 
     // 在下一个事件循环中获取更新后的状态并触发回调
     setTimeout(() => {
       // 获取更新后的状态
-      const updatedState = historyReducer(state, { type: 'ADD_NODE', payload: { text, parentId } });
+      const updatedState = historyReducer(state, { type: 'ADD_NODE', payload: { text, parentId, nodeType } });
       const currentData = updatedState.present.rootNode;
 
       // 查找新添加的节点的辅助函数
@@ -430,7 +431,7 @@ export function useMindMap(
           newNode ? [newNode] : undefined,
           undefined,
           undefined,
-          `添加节点: ${text}`
+          `添加同级节点: ${text}`
         ),
         idChain,
         parentIdChain,

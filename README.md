@@ -255,7 +255,7 @@ interface DataChangeInfo {
 ### 操作类型枚举
 ```typescript
 enum OperationType {
-  ADD_NODE = 'ADD_NODE',                    // 添加节点
+  ADD_NODE = 'ADD_NODE',                    // 添加同级节点
   DELETE_NODE = 'DELETE_NODE',              // 删除节点
   UPDATE_NODE_TEXT = 'UPDATE_NODE_TEXT',    // 更新节点文本
   TOGGLE_NODE_COLLAPSE = 'TOGGLE_NODE_COLLAPSE', // 切换节点折叠状态

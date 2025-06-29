@@ -100,7 +100,7 @@ export const ReactMindMap: React.FC<ReactMindMapProps> = ({ initialData, width =
     const canAddChild = !!state.selectedNodeId;
     const handleDeleteNodeCommand = () => { if (state.selectedNodeId) deleteNode(state.selectedNodeId); };
     return [
-      { id: 'add-node', label: '添加节点', action: () => addNode(NEW_NODE_TEXT, null), disabled: state.isReadOnly, title: '添加兄弟节点', icon: FaPlus },
+      { id: 'add-node', label: '添加同级节点', action: () => addNode(NEW_NODE_TEXT, null), disabled: state.isReadOnly, title: '添加兄弟节点', icon: FaPlus },
       { id: 'add-child', label: '添加子节点', action: () => { if (state.selectedNodeId) addNode(NEW_NODE_TEXT, state.selectedNodeId); }, disabled: !canAddChild || state.isReadOnly, title: '添加子节点', icon: FaSitemap },
       { id: 'delete-node', label: '删除节点', action: handleDeleteNodeCommand, disabled: !state.selectedNodeId || state.isReadOnly, title: '删除节点', icon: FaTrash },
     ];

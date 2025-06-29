@@ -1,6 +1,6 @@
 // 节点默认尺寸和样式常量
 export const NODE_DEFAULT_WIDTH = 160;
-export const NODE_DEFAULT_HEIGHT = 50;
+export const NODE_DEFAULT_HEIGHT = 40;
 export const NODE_DEFAULT_COLOR = '#FFFFFF'; // 白色背景
 export const NODE_SELECTED_COLOR = '#dbeafe'; // Tailwind blue-100 - 选中时背景色（如果使用边框则不填充）
 export const NODE_TEXT_COLOR = '#1f2937'; // Tailwind gray-800 - 文本深灰色
@@ -47,7 +47,7 @@ export const CHILD_H_SPACING = 60; // 父子节点水平间距
 export const CHILD_V_SPACING = 15; // 兄弟节点垂直间距
 
 // 新节点默认文本
-export const NEW_NODE_TEXT = "新想法";
+export const NEW_NODE_TEXT = "新分支主题";
 
 // 节点阴影效果
 export const NODE_SHADOW_COLOR = 'rgba(0, 0, 0, 0.1)';

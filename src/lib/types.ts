@@ -72,6 +72,7 @@ export interface ToolbarButtonConfig {
 export interface AddNodePayload {
   text: string;
   parentId: string | null;
+  nodeType?: string; // 新增，支持类型约束
 }
 
 export interface DeleteNodePayload {
@@ -249,4 +250,36 @@ export interface ReactMindMapProps {
   getNodeStyle?: (node: MindMapNode, state: MindMapState) => React.CSSProperties;
   typeConfig?: MindMapTypeConfig;
 }
+
+// 内置节点类型约束配置
+export const BUILTIN_NODE_TYPE_CONFIG = {
+  rootNode: {
+    canAddChildren: ['moduleNode'],
+  },
+  moduleNode: {
+    canAddChildren: ['testPointNode'],
+  },
+  testPointNode: {
+    canAddChildren: ['caseNode'],
+  },
+  caseNode: {
+    canAddChildren: ['preconditionNode', 'stepNode'],
+    maxChildrenOfType: {
+      preconditionNode: 1,
+      // stepNode: 无限制
+    }
+  },
+  preconditionNode: {
+    canAddChildren: [],
+  },
+  stepNode: {
+    canAddChildren: ['resultNode'],
+    maxChildrenOfType: {
+      resultNode: 1,
+    }
+  },
+  resultNode: {
+    canAddChildren: [],
+  }
+};
 
