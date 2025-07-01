@@ -182,6 +182,15 @@ function createMindMapReducer(typeConfig?: any, priorityConfig?: any) {
       case 'SET_PRIORITY_CONFIG': {
         return { ...state, priorityConfig: action.payload.priorityConfig ?? state.priorityConfig };
       }
+      case 'UPDATE_NODE_PRIORITY': {
+        const { nodeId, priority } = action.payload;
+        if (!state.rootNode) return state;
+        const newRoot = deepCopyAST(state.rootNode);
+        const node = findNodeInAST(newRoot, nodeId);
+        if (node) node.priority = priority;
+        const laidOutRoot = applyLayout(newRoot, typeConfig, state.priorityConfig);
+        return { ...state, rootNode: laidOutRoot };
+      }
       default: return state;
     }
   }

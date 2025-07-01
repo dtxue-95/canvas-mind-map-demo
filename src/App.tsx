@@ -120,7 +120,12 @@ function App() {
     showMinimap: true,
     enableContextMenu: true,
     typeConfig,
-    priorityConfig: { enabled: true },
+    priorityConfig: { enabled: true, editable: true,     options: [
+      { value: 0, label: 'P0', color: '#ff3b30' },
+      { value: 1, label: 'P1', color: '#ff9500' },
+      { value: 2, label: 'P2', color: '#007aff' },
+      { value: 3, label: 'P3', color: '#8e8e93' }
+    ] },
   };
 
   return (

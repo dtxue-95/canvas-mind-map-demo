@@ -124,7 +124,8 @@ export type MindMapAction =
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'REPLACE_STATE', payload: { past: MindMapState[], present: MindMapState, future: MindMapState[] } }
-  | { type: 'SET_PRIORITY_CONFIG'; payload: { priorityConfig: MindMapPriorityConfig } };
+  | { type: 'SET_PRIORITY_CONFIG'; payload: { priorityConfig: MindMapPriorityConfig } }
+  | { type: 'UPDATE_NODE_PRIORITY'; payload: { nodeId: string; priority: number } };
 
 // This interface is now defined and exported from useMindMap.ts
 
@@ -300,6 +301,16 @@ export const BUILTIN_NODE_TYPE_CONFIG = {
 
 // 优先级标签控制配置
 export interface MindMapPriorityConfig {
-  enabled: boolean; // 是否启用优先级标签
+  enabled: boolean;
+  editable?: boolean; // 是否允许编辑优先级
+  options?: Array<{ value: number; label: string; color?: string }>; // 优先级选项
+  // ...其他配置
+}
+
+export interface PriorityConfig {
+  enabled: boolean;
+  editable?: boolean; // 是否允许编辑优先级
+  options?: Array<{ value: number; label: string; color?: string }>; // 优先级选项
+  // ...其他配置
 }
 

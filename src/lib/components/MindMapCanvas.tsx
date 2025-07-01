@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useMindMap } from '../hooks/useMindMap';
 import { MindMapNode, Point, Viewport, MindMapState, MindMapPriorityConfig } from '../types'; // Changed Node to MindMapNode
-import { 
-    drawNode, drawConnection, isPointInNode, screenToWorld, drawCollapseButton 
+import {
+  drawNode, drawConnection, isPointInNode, screenToWorld, drawCollapseButton
 } from '../utils/canvasUtils';
 import { CANVAS_BACKGROUND_COLOR, DRAG_THRESHOLD, NEW_NODE_TEXT, COLLAPSE_BUTTON_RADIUS } from '../constants';
 import NodeEditInput from './NodeEditInput';
@@ -18,7 +18,31 @@ import { centerViewCommand } from '../commands/centerViewCommand';
 import { expandAllCommand } from '../commands/expandAllCommand';
 import { collapseAllCommand } from '../commands/collapseAllCommand';
 
-
+function PriorityLabel({ label, color, bg }: { label: string; color: string; bg?: string }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        height: 24,
+        borderRadius: 8,
+        background: bg || '#fff',
+        color,
+        border: `1.5px solid ${color}`,
+        fontWeight: 500,
+        fontSize: 14,
+        padding: '0 12px',
+        userSelect: 'none',
+        whiteSpace: 'nowrap',
+        boxSizing: 'border-box',
+        minWidth: 36,
+        justifyContent: 'center'
+      }}
+    >
+      {label}
+    </span>
+  );
+}
 
 interface MindMapCanvasProps {
   mindMapHookInstance: ReturnType<typeof useMindMap>;
@@ -52,24 +76,24 @@ interface MindMapCanvasProps {
 // Helper function to find the node at a given point in the AST
 // Traverses children first to simulate "topmost" node selection if overlap (drawing order dependent)
 function findNodeInASTFromPoint(
-    targetNode: MindMapNode | null,
-    worldPoint: Point,
-    viewport: Viewport // Needed for isPointInNode if it relies on screen space, but isPointInNode uses world
+  targetNode: MindMapNode | null,
+  worldPoint: Point,
+  viewport: Viewport // Needed for isPointInNode if it relies on screen space, but isPointInNode uses world
 ): MindMapNode | null {
-    if (!targetNode) return null;
+  if (!targetNode) return null;
 
-    // Check children first (reverse order for "topmost" if drawn last)
-    if (targetNode.children && !targetNode.isCollapsed) { // Only check children if not collapsed
-        for (let i = targetNode.children.length - 1; i >= 0; i--) {
-            const foundInChild = findNodeInASTFromPoint(targetNode.children[i], worldPoint, viewport);
-            if (foundInChild) return foundInChild;
-        }
+  // Check children first (reverse order for "topmost" if drawn last)
+  if (targetNode.children && !targetNode.isCollapsed) { // Only check children if not collapsed
+    for (let i = targetNode.children.length - 1; i >= 0; i--) {
+      const foundInChild = findNodeInASTFromPoint(targetNode.children[i], worldPoint, viewport);
+      if (foundInChild) return foundInChild;
     }
-    // Check current node
-    if (isPointInNode(worldPoint, targetNode)) {
-        return targetNode;
-    }
-    return null;
+  }
+  // Check current node
+  if (isPointInNode(worldPoint, targetNode)) {
+    return targetNode;
+  }
+  return null;
 }
 
 
@@ -170,7 +194,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
         }
       }
     }
-    
+
     // 3. Draw collapse button on top of lines if node has children
     if (node.children && node.children.length > 0) {
       drawCollapseButton(ctx, node, node.isCollapsed, node.childrenCount);
@@ -306,25 +330,25 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     // Check for click on collapse/expand button first by traversing
     let buttonClickedProcessed = false;
     function checkCollapseButtonRecursive(node: MindMapNode | null): boolean {
-        if (!node) return false;
-        if (!node.isCollapsed) {
-          for (const child of node.children) {
-              if (checkCollapseButtonRecursive(child)) return true;
-          }
+      if (!node) return false;
+      if (!node.isCollapsed) {
+        for (const child of node.children) {
+          if (checkCollapseButtonRecursive(child)) return true;
         }
-        if (node.children && node.children.length > 0) {
-            const buttonCenterX = node.position.x + node.width;
-            const buttonCenterY = node.position.y + node.height / 2;
-            const distSq = (worldPos.x - buttonCenterX) ** 2 + (worldPos.y - buttonCenterY) ** 2;
-            if (distSq <= COLLAPSE_BUTTON_RADIUS ** 2) {
-              toggleNodeCollapse(node.id);
-              return true;
-            }
+      }
+      if (node.children && node.children.length > 0) {
+        const buttonCenterX = node.position.x + node.width;
+        const buttonCenterY = node.position.y + node.height / 2;
+        const distSq = (worldPos.x - buttonCenterX) ** 2 + (worldPos.y - buttonCenterY) ** 2;
+        if (distSq <= COLLAPSE_BUTTON_RADIUS ** 2) {
+          toggleNodeCollapse(node.id);
+          return true;
         }
-        return false;
+      }
+      return false;
     }
     if (checkCollapseButtonRecursive(rootNode)) {
-        buttonClickedProcessed = true;
+      buttonClickedProcessed = true;
     }
     if (buttonClickedProcessed) return;
     const clickedNode = findNodeInASTFromPoint(rootNode, worldPos, viewport);
@@ -366,27 +390,27 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
 
     const mousePos = getMousePositionOnCanvas(e);
     const worldPos = screenToWorld(mousePos, viewport);
-    
+
     // Check if click was on a collapse button first (reverse traversal for topmost)
     function wasCollapseButtonClicked(node: MindMapNode | null): boolean {
-        if (!node) return false;
-        if (!node.isCollapsed) { // Only check children's buttons if parent is expanded
-            for (let i = node.children.length - 1; i >=0; i--) {
-                 if (wasCollapseButtonClicked(node.children[i])) return true;
-            }
+      if (!node) return false;
+      if (!node.isCollapsed) { // Only check children's buttons if parent is expanded
+        for (let i = node.children.length - 1; i >= 0; i--) {
+          if (wasCollapseButtonClicked(node.children[i])) return true;
         }
-        if (node.children && node.children.length > 0) {
-            const buttonCenterX = node.position.x + node.width;
-            const buttonCenterY = node.position.y + node.height / 2;
-            const distSq = (worldPos.x - buttonCenterX)**2 + (worldPos.y - buttonCenterY)**2;
-            if (distSq <= COLLAPSE_BUTTON_RADIUS**2) return true;
-        }
-        return false;
+      }
+      if (node.children && node.children.length > 0) {
+        const buttonCenterX = node.position.x + node.width;
+        const buttonCenterY = node.position.y + node.height / 2;
+        const distSq = (worldPos.x - buttonCenterX) ** 2 + (worldPos.y - buttonCenterY) ** 2;
+        if (distSq <= COLLAPSE_BUTTON_RADIUS ** 2) return true;
+      }
+      return false;
     }
     if (wasCollapseButtonClicked(rootNode)) return; // Don't edit if button was double-clicked
 
     const nodeToEdit = findNodeInASTFromPoint(rootNode, worldPos, viewport);
-    
+
     if (nodeToEdit) {
       setSelectedNode(nodeToEdit.id);
       setEditingNode(nodeToEdit.id);
@@ -420,65 +444,82 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
 
 
   // 右键菜单分组
-  const { fitView, centerView } = mindMapHookInstance;
+  const { fitView, centerView, dispatch } = mindMapHookInstance;
   const contextMenuGroups: ContextMenuGroup[] = getContextMenuGroups
     ? getContextMenuGroups(contextMenu.node, state)
     : (
       contextMenu.node
         ? [
-            // 节点菜单（原有逻辑）
-            {
+          // 节点菜单（原有逻辑）
+          {
+            actions: [
+              {
+                key: 'add-sibling',
+                label: '添加同级节点',
+                icon: <FaPlus />,
+                onClick: () => addSiblingNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
+                disabled: !addSiblingNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+              },
+              {
+                key: 'add-child',
+                label: '添加子节点',
+                icon: <FaPlus />,
+                onClick: () => addChildNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
+                disabled: !addChildNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+              },
+            ]
+          },
+          // 新增：修改优先级二级菜单
+          ...(priorityConfig && priorityConfig.enabled && priorityConfig.editable && !isReadOnly && typeof contextMenu.node!.priority === 'number' && Array.isArray(priorityConfig.options) && priorityConfig.options.length > 0
+            ? [{
               actions: [
                 {
-                  key: 'add-sibling',
-                  label: '添加同级节点',
-                  icon: <FaPlus />,
-                  onClick: () => addSiblingNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
-                  disabled: !addSiblingNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
-                },
-                {
-                  key: 'add-child',
-                  label: '添加子节点',
-                  icon: <FaPlus />,
-                  onClick: () => addChildNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { addNode: mindMapAddNode }),
-                  disabled: !addChildNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
-                },
-              ]
-            },
-            {
-              actions: [
-                {
-                  key: 'delete',
-                  label: '删除节点',
-                  icon: <FaTrash />,
-                  onClick: () => deleteNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { deleteNode: mindMapDeleteNode }),
-                  disabled: !deleteNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+                  key: 'edit-priority',
+                  label: '修改优先级',
+                  onClick: () => { },
+                  children: priorityConfig.options.map(opt => ({
+                    key: 'priority-' + opt.value,
+                    label: <PriorityLabel label={opt.label} color={opt.color || '#888'} bg={(opt.color ? opt.color + '22' : '#f4f4f7')} />,
+                    onClick: () => dispatch({ type: 'UPDATE_NODE_PRIORITY', payload: { nodeId: contextMenu.node!.id, priority: opt.value } })
+                  }))
                 }
               ]
-            },
-            {
-              actions: [
-                ...(contextMenu.node!.children && contextMenu.node!.children.length > 0 ? [
-                  contextMenu.node!.isCollapsed
-                    ? { key: 'expand', label: '展开当前节点', icon: <FaChevronDown />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
-                    : { key: 'collapse', label: '收起当前节点', icon: <FaChevronUp />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
-                ] : []),
-                { key: 'expand-all', label: expandAllCommand.label, icon: <FaExpand />, onClick: () => expandAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !expandAllCommand.canExecute(state) },
-                { key: 'collapse-all', label: collapseAllCommand.label, icon: <FaCompress />, onClick: () => collapseAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !collapseAllCommand.canExecute(state) },
-              ]
-            }
-          ].filter(group => group.actions.length > 0)
-        : [
-            // 空白处菜单
-            {
-              actions: [
-                { key: 'expand-all', label: expandAllCommand.label, icon: <FaExpand />, onClick: () => expandAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !expandAllCommand.canExecute(state) },
-                { key: 'collapse-all', label: collapseAllCommand.label, icon: <FaCompress />, onClick: () => collapseAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !collapseAllCommand.canExecute(state) },
-                { key: 'center-view', label: centerViewCommand.label, icon: <FiCrosshair />, onClick: () => centerViewCommand.execute(state, { centerView }), disabled: !centerViewCommand.canExecute(state) },
-                { key: 'fit-view', label: fitViewCommand.label, icon: <FiBox />, onClick: () => fitViewCommand.execute(state, { fitView }), disabled: !fitViewCommand.canExecute(state) },
-              ]
-            }
+            }]
+            : []),
+          {
+            actions: [
+              {
+                key: 'delete',
+                label: '删除节点',
+                icon: <FaTrash />,
+                onClick: () => deleteNodeCommand.execute(getMenuCommandState(contextMenu.node!.id), { deleteNode: mindMapDeleteNode }),
+                disabled: !deleteNodeCommand.canExecute(getMenuCommandState(contextMenu.node!.id))
+              }
+            ]
+          },
+          {
+            actions: [
+              ...(contextMenu.node!.children && contextMenu.node!.children.length > 0 ? [
+                contextMenu.node!.isCollapsed
+                  ? { key: 'expand', label: '展开当前节点', icon: <FaChevronDown />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
+                  : { key: 'collapse', label: '收起当前节点', icon: <FaChevronUp />, onClick: () => toggleNodeCollapse(contextMenu.node!.id) }
+              ] : []),
+              { key: 'expand-all', label: expandAllCommand.label, icon: <FaExpand />, onClick: () => expandAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !expandAllCommand.canExecute(state) },
+              { key: 'collapse-all', label: collapseAllCommand.label, icon: <FaCompress />, onClick: () => collapseAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !collapseAllCommand.canExecute(state) },
+            ]
+          },
+
+        ].filter(group => group.actions.length > 0)
+        :
+        {  // 空白处菜单
+          actions: [
+            { key: 'expand-all', label: expandAllCommand.label, icon: <FaExpand />, onClick: () => expandAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !expandAllCommand.canExecute(state) },
+            { key: 'collapse-all', label: collapseAllCommand.label, icon: <FaCompress />, onClick: () => collapseAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !collapseAllCommand.canExecute(state) },
+            { key: 'center-view', label: centerViewCommand.label, icon: <FiCrosshair />, onClick: () => centerViewCommand.execute(state, { centerView }), disabled: !centerViewCommand.canExecute(state) },
+            { key: 'fit-view', label: fitViewCommand.label, icon: <FiBox />, onClick: () => fitViewCommand.execute(state, { fitView }), disabled: !fitViewCommand.canExecute(state) },
           ]
+        }
+
     );
 
   useEffect(() => {
@@ -486,8 +527,8 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       // 检查焦点是否在输入框上，如果是则不处理全局键盘事件
       const activeElement = document.activeElement;
       if (activeElement && (
-        activeElement.tagName === 'INPUT' || 
-        activeElement.tagName === 'TEXTAREA' || 
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
         (activeElement as HTMLElement).contentEditable === 'true'
       )) {
         return; // 焦点在输入框上，不处理全局键盘事件
@@ -497,25 +538,25 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
 
       if (isReadOnly) {
         // Limited shortcuts in read-only mode (e.g., zoom)
-        if (e.key === '+' || e.key === '=') { 
-          const centerCanvas: Point = {x: currentCanvasSize.width / 2, y: currentCanvasSize.height / 2};
-          zoom(-100, centerCanvas); 
+        if (e.key === '+' || e.key === '=') {
+          const centerCanvas: Point = { x: currentCanvasSize.width / 2, y: currentCanvasSize.height / 2 };
+          zoom(-100, centerCanvas);
           e.preventDefault();
-        } else if (e.key === '-' || e.key === '_') { 
-            const centerCanvas: Point = {x: currentCanvasSize.width / 2, y: currentCanvasSize.height / 2};
-            zoom(100, centerCanvas); 
-            e.preventDefault();
+        } else if (e.key === '-' || e.key === '_') {
+          const centerCanvas: Point = { x: currentCanvasSize.width / 2, y: currentCanvasSize.height / 2 };
+          zoom(100, centerCanvas);
+          e.preventDefault();
         }
         return; // No other actions in read-only
       }
-      
+
       // --- Editable Mode Shortcuts ---
       const currentSelectedNode = selectedNodeId ? findNodeInAST(rootNode, selectedNodeId) : null;
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedNodeId) {
           if (currentSelectedNode && currentSelectedNode.id === rootNode?.id && (!rootNode.children || rootNode.children.length === 0)) {
-             alert("Cannot delete the last node.");
+            alert("Cannot delete the last node.");
           } else {
             mindMapDeleteNode(selectedNodeId);
           }
@@ -528,17 +569,17 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
         }
       } else if (e.key === 'Tab' && !e.shiftKey) { // Add child
         if (selectedNodeId) {
-          mindMapAddNode(NEW_NODE_TEXT, selectedNodeId); 
+          mindMapAddNode(NEW_NODE_TEXT, selectedNodeId);
           e.preventDefault();
         }
       } else if (e.key === 'Insert' || (e.shiftKey && e.key === 'Tab')) { // Add sibling (or root if nothing sensible selected)
         let parentIdForSibling: string | null = null;
         if (currentSelectedNode && rootNode) {
-            const parentInfo = findNodeAndParentInAST(rootNode, currentSelectedNode.id);
-            if (parentInfo && parentInfo.parent) {
-                parentIdForSibling = parentInfo.parent.id;
-            }
-            // If selected is root, parentIdForSibling remains null, addNode logic handles creating another root-level context if needed/allowed
+          const parentInfo = findNodeAndParentInAST(rootNode, currentSelectedNode.id);
+          if (parentInfo && parentInfo.parent) {
+            parentIdForSibling = parentInfo.parent.id;
+          }
+          // If selected is root, parentIdForSibling remains null, addNode logic handles creating another root-level context if needed/allowed
         }
         mindMapAddNode(NEW_NODE_TEXT, parentIdForSibling);
         e.preventDefault();
@@ -556,7 +597,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedNodeId, editingNodeId, mindMapDeleteNode, setEditingNode, mindMapAddNode, zoom, currentCanvasSize, rootNode, isReadOnly, updateNodeText, pan, toggleNodeCollapse, findNodeAndParentInAST]); // Added findNodeAndParentInAST due to usage in keydown
-  
+
   // 手动处理wheel事件以避免passive listener警告
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -574,12 +615,12 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
 
     // 使用passive: false选项来允许preventDefault
     canvas.addEventListener('wheel', handleWheel, { passive: false });
-    
+
     return () => {
       canvas.removeEventListener('wheel', handleWheel);
     };
   }, [zoom]);
-  
+
   const nodeToEdit = editingNodeId ? findNodeInAST(rootNode, editingNodeId) : null;
 
 
