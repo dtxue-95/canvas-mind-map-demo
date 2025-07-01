@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useMindMap } from '../hooks/useMindMap';
-import { MindMapNode, Point, Viewport, MindMapState } from '../types'; // Changed Node to MindMapNode
+import { MindMapNode, Point, Viewport, MindMapState, MindMapPriorityConfig } from '../types'; // Changed Node to MindMapNode
 import { 
     drawNode, drawConnection, isPointInNode, screenToWorld, drawCollapseButton 
 } from '../utils/canvasUtils';
@@ -46,6 +46,7 @@ interface MindMapCanvasProps {
    * 拖动状态变化回调（用于外部阻断自动居中）
    */
   onDraggingChange?: (dragging: boolean) => void;
+  priorityConfig?: MindMapPriorityConfig;
 }
 
 // Helper function to find the node at a given point in the AST
@@ -73,7 +74,7 @@ function findNodeInASTFromPoint(
 
 
 
-const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground, enableContextMenu = true, getContextMenuGroups, onDraggingChange }) => {
+const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground, enableContextMenu = true, getContextMenuGroups, onDraggingChange, priorityConfig }) => {
   const {
     state, setSelectedNode, setEditingNode, zoom, pan,
     updateNodeText, addNode: mindMapAddNode, deleteNode: mindMapDeleteNode,
@@ -149,7 +150,8 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       node.id === currentMatchId,
       searchTerm,
       mergedStyle, // 传递自定义样式
-      mindMapHookInstance.typeConfig // 新增：透传 typeConfig
+      mindMapHookInstance.typeConfig, // 传递类型配置
+      priorityConfig // 新增：传递优先级配置
     );
 
     // 2. If the node is not collapsed and has children, draw connections
@@ -243,7 +245,8 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
           node.id === currentMatchNodeId,
           currentSearchTerm,
           mergedStyle,
-          mindMapHookInstance.typeConfig
+          mindMapHookInstance.typeConfig,
+          priorityConfig
         );
       }
       // 2. 父节点到子节点的连线、折叠按钮始终要画
@@ -278,11 +281,11 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       drawBranchRecursiveNoEdit(ctx, rootNode);
     }
     ctx.restore();
-  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, currentMatchNodeId, isReadOnly, getNodeStyle, canvasBackgroundColor, showDotBackground, state, mindMapHookInstance.typeConfig, editingNodeDynamicWidth]);
+  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, currentMatchNodeId, isReadOnly, getNodeStyle, canvasBackgroundColor, showDotBackground, state, mindMapHookInstance.typeConfig, editingNodeDynamicWidth, priorityConfig]);
 
-  useEffect(() => {
-    console.log('MindMapCanvas render viewport', viewport);
-  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, currentMatchNodeId, isReadOnly, getNodeStyle, canvasBackgroundColor, showDotBackground, state, mindMapHookInstance.typeConfig]);
+  // useEffect(() => {
+  //   console.log('MindMapCanvas render viewport', viewport);
+  // }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, currentMatchNodeId, isReadOnly, getNodeStyle, canvasBackgroundColor, showDotBackground, state, mindMapHookInstance.typeConfig]);
 
   const getMousePositionOnCanvas = (e: React.MouseEvent): Point => {
     const canvas = canvasRef.current;
@@ -609,6 +612,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
           canvasBounds={canvasBounds}
           typeConfig={mindMapHookInstance.typeConfig}
           setDynamicWidth={setEditingNodeDynamicWidth}
+          priorityConfig={priorityConfig}
         />
       )}
     </div>

@@ -289,3 +289,48 @@ useEffect(() => {
 - 形成了"内置类型节点同级/子级添加均有严格类型约束"的最佳实践。
 
 --- 
+
+## 2024-07-09 优先级标签编辑态消失问题修复
+
+### 问题现象
+- 节点未编辑时，优先级标签（如P0~P3）可正常显示，且与类型标签并列。
+- 进入节点编辑态（双击或快捷键编辑）时，优先级标签消失，仅类型标签显示，导致编辑体验不一致。
+
+### 问题原因
+- MindMapCanvas 渲染 NodeEditInput 组件时，未将 priorityConfig 传递下去，导致 NodeEditInput 无法判断是否需要渲染优先级标签。
+
+### 修复方案
+- 明确将 priorityConfig 作为 prop 传递给 NodeEditInput。
+- NodeEditInput 内部已具备优先级标签渲染逻辑，修复后编辑态下优先级标签与类型标签始终显示，表现与未编辑状态完全一致。
+
+### 结论
+- 该修复保证了节点"类型+优先级"多标签在所有状态下的自适应渲染体验，彻底消除了编辑态下标签缺失的 UI 问题。
+
+--- 
+
+## 2024-07-02 优先级标签配置链路全量修复
+
+### 问题现象
+- 多标签节点（如类型+优先级）宽度计算异常，节点文本溢出。
+- 调试发现：布局阶段（calculateNodeDimensions）priorityConfig 始终为 undefined，渲染阶段 priorityConfig 正常。
+
+### 调试过程
+- 在 layoutEngine.ts 的 applyLayout、_layoutSubtreeRecursive、getBranchActualHeight、_getNodeDimensions 及 canvasUtils.ts 的 calculateNodeDimensions 全链路加 console.log。
+- 日志显示：递归链路 priorityConfig 参数始终为 undefined，只有 drawNode 阶段为正常对象。
+- 进一步排查 useMindMap.ts，发现 reducer 初始化 present 时 priorityConfig 未正确传入，applyLayout 入口参数为 undefined，导致全链路丢失。
+
+### 修复过程
+1. initialMindMapState 增加默认 priorityConfig: { enabled: false }，保证 state 初始化不为 undefined。
+2. useMindMap 初始化 present 时用 props.priorityConfig 初始化 initialMindMapState，保证 reducer 链路 state.priorityConfig 不会 undefined。
+3. useEffect 监听 props.priorityConfig，无条件同步到 reducer，保证外部变更能实时传递。
+4. reducer INIT_MAP、LOAD_DATA、SET_PRIORITY_CONFIG case，payload 里没有 priorityConfig 时 fallback 到 state.priorityConfig，保证链路不断。
+
+### 结果
+- 修复后，layoutEngine.ts 全链路 priorityConfig 均为有效对象，calculateNodeDimensions 阶段不再 undefined。
+- 多标签节点宽度计算与渲染完全一致，彻底解决溢出与宽度异常问题。
+
+### 经验总结
+- 链路参数传递与 reducer 状态初始化必须严谨，入口参数一旦 undefined 会导致全链路丢失。
+- 复杂配置项建议全链路加默认值和 fallback，避免因初始化疏漏导致难以排查的 bug。
+
+--- 

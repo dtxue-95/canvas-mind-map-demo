@@ -6,8 +6,9 @@ import { deepCopyAST } from './utils/nodeUtils'; // 用于 applyLayout 操作副
 /**
  * 根据节点文本获取动态尺寸
  */
-function _getNodeDimensions(node: MindMapNode, typeConfig?: any): { width: number; height: number } {
-  return calculateNodeDimensions(node.text, node.nodeType, typeConfig);
+function _getNodeDimensions(node: MindMapNode, typeConfig?: any, priorityConfig?: any): { width: number; height: number } {
+  console.log('[layoutEngine:_getNodeDimensions] priorityConfig:', priorityConfig);
+  return calculateNodeDimensions(node.text, node.nodeType, typeConfig, node.priority, priorityConfig);
 }
 
 /**
@@ -16,10 +17,12 @@ function _getNodeDimensions(node: MindMapNode, typeConfig?: any): { width: numbe
  */
 function getBranchActualHeight(
   node: MindMapNode, // 节点（来自可能修改过的AST，如果尺寸发生变化）
-  typeConfig?: any
+  typeConfig?: any,
+  priorityConfig?: any
 ): number {
+  console.log('[layoutEngine:getBranchActualHeight] priorityConfig:', priorityConfig);
   // 根据节点当前文本获取尺寸
-  const { height: nodeHeight } = _getNodeDimensions(node, typeConfig);
+  const { height: nodeHeight } = _getNodeDimensions(node, typeConfig, priorityConfig);
 
   if (node.isCollapsed) {
     return nodeHeight;
@@ -32,7 +35,7 @@ function getBranchActualHeight(
   let childrenColumnStackedHeight = 0;
   for (let i = 0; i < node.children.length; i++) {
     const childNode = node.children[i];
-    childrenColumnStackedHeight += getBranchActualHeight(childNode, typeConfig);
+    childrenColumnStackedHeight += getBranchActualHeight(childNode, typeConfig, priorityConfig);
     if (i < node.children.length - 1) {
       childrenColumnStackedHeight += CHILD_V_SPACING;
     }
@@ -48,11 +51,12 @@ function _layoutSubtreeRecursive(
   nodeToLayout: MindMapNode, // 来自复制的AST的节点
   currentX: number,
   anchorY: number,
-  typeConfig?: any
+  typeConfig?: any,
+  priorityConfig?: any
 ): number { // 返回布局分支的实际高度
-
+  console.log('[layoutEngine:_layoutSubtreeRecursive] priorityConfig:', priorityConfig);
   // 根据节点文本更新 nodeToLayout 实例中的尺寸
-  const { width: calculatedWidth, height: calculatedHeight } = _getNodeDimensions(nodeToLayout, typeConfig);
+  const { width: calculatedWidth, height: calculatedHeight } = _getNodeDimensions(nodeToLayout, typeConfig, priorityConfig);
   nodeToLayout.width = calculatedWidth;
   nodeToLayout.height = calculatedHeight;
   
@@ -63,7 +67,7 @@ function _layoutSubtreeRecursive(
 
   if (!nodeToLayout.isCollapsed && nodeToLayout.children && nodeToLayout.children.length > 0) {
     for (const child of nodeToLayout.children) {
-      childBranchActualHeights.push(getBranchActualHeight(child, typeConfig)); // 使用当前（复制的）AST中的子节点
+      childBranchActualHeights.push(getBranchActualHeight(child, typeConfig, priorityConfig)); // 使用当前（复制的）AST中的子节点
     }
     childrenColumnTotalHeight = childBranchActualHeights.reduce((sum, h) => sum + h, 0) +
                                (nodeToLayout.children.length > 0 ? (nodeToLayout.children.length - 1) * CHILD_V_SPACING : 0);
@@ -90,7 +94,7 @@ function _layoutSubtreeRecursive(
       const childNode = nodeToLayout.children[i];
       const childAnchorY = childrenColumnFinalStartY + currentChildOffsetYInColumn;
       
-      _layoutSubtreeRecursive(childNode, childStartX, childAnchorY, typeConfig); // 传递复制的AST中的子节点
+      _layoutSubtreeRecursive(childNode, childStartX, childAnchorY, typeConfig, priorityConfig); // 传递复制的AST中的子节点
       
       currentChildOffsetYInColumn += childBranchActualHeights[i] + CHILD_V_SPACING;
     }
@@ -102,12 +106,15 @@ function _layoutSubtreeRecursive(
  * 应用布局算法到思维导图
  * @param originalRootNode 原始根节点
  * @param typeConfig 类型配置
+ * @param priorityConfig 优先级标签配置
  * @returns 布局后的根节点副本
  */
 export function applyLayout(
   originalRootNode: MindMapNode | null,
-  typeConfig?: any
+  typeConfig?: any,
+  priorityConfig?: any
 ): MindMapNode | null {
+  console.log('[layoutEngine:applyLayout] priorityConfig:', priorityConfig);
   if (!originalRootNode) {
     return null;
   }
@@ -121,7 +128,7 @@ export function applyLayout(
   const startX = CHILD_H_SPACING / 2; 
   const startY = 0; 
   
-  _layoutSubtreeRecursive(rootNodeCopy, startX, startY, typeConfig);
+  _layoutSubtreeRecursive(rootNodeCopy, startX, startY, typeConfig, priorityConfig);
   
   return rootNodeCopy;
 }

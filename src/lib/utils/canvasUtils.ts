@@ -1,4 +1,4 @@
-import { MindMapNode as MindMapNode, Point, Viewport } from '../types';
+import { MindMapNode as MindMapNode, Point, Viewport, PRIORITY_LABELS, NodePriority, MindMapPriorityConfig } from '../types';
 import { 
   FONT_FAMILY, FONT_SIZE, NODE_BORDER_RADIUS, 
   TEXT_PADDING_X, TEXT_PADDING_Y, CONNECTION_LINE_COLOR, CONNECTION_LINE_WIDTH,
@@ -115,24 +115,39 @@ function splitTextIntoLines(
   return lines;
 }
 
+const MIN_TEXT_WIDTH = 60;
+
 /**
  * 计算节点的尺寸
  * @param text 节点文本
  * @param nodeType 节点类型
  * @param typeConfig 类型配置
+ * @param priority 优先级
+ * @param priorityConfig 优先级配置
+ * @param fontWeight 字体粗细
+ * @param fontSize 字体大小
+ * @param fontFamily 字体族
  * @returns 节点的宽度和高度
  */
-export function calculateNodeDimensions(text: string, nodeType?: string, typeConfig?: any): { width: number; height: number } {
-  const ctx = getOffscreenContext(); // 确保字体已设置
+export function calculateNodeDimensions(
+  text: string,
+  nodeType?: string,
+  typeConfig?: any,
+  priority?: number,
+  priorityConfig?: MindMapPriorityConfig,
+  fontWeight: string = 'normal',
+  fontSize: number = FONT_SIZE,
+  fontFamily: string = FONT_FAMILY
+): { width: number; height: number } {
+  const ctx = getOffscreenContext();
+
+  // 计算类型标签宽度
   let labelWidth = 0;
-  // 计算标签宽度
+  let labelConfig: { label: string; color: string; bg: string } | undefined;
   if (nodeType) {
-    let labelConfig: { label: string; color: string; bg: string } | undefined;
     if (typeConfig && typeConfig.mode === 'custom' && Array.isArray(typeConfig.customTypes)) {
       const custom = typeConfig.customTypes.find((t: any) => t.type === nodeType);
-      if (custom) {
-        labelConfig = { label: custom.label, color: custom.color, bg: custom.color + '22' };
-      }
+      if (custom) labelConfig = { label: custom.label, color: custom.color, bg: custom.color + '22' };
     } else if (typeConfig && typeConfig.mode === 'builtin' && BUILTIN_TYPE_LABELS[nodeType]) {
       labelConfig = BUILTIN_TYPE_LABELS[nodeType];
     } else if (BUILTIN_TYPE_LABELS[nodeType]) {
@@ -140,22 +155,70 @@ export function calculateNodeDimensions(text: string, nodeType?: string, typeCon
     }
     if (labelConfig) {
       ctx.save();
-      ctx.font = `500 12px ${FONT_FAMILY}`;
-      const paddingX = 6;
-      labelWidth = ctx.measureText(labelConfig.label).width + paddingX * 2 + 6; // 6为标签与文本间距
+      ctx.font = `500 12px ${fontFamily}`;
+      labelWidth = ctx.measureText(labelConfig.label).width + 6 * 2;
       ctx.restore();
     }
   }
+
+  // 计算优先级标签宽度
+  let priorityLabelWidth = 0;
+  if (priorityConfig?.enabled && typeof priority === 'number' && PRIORITY_LABELS[priority as NodePriority]) {
+    ctx.save();
+    ctx.font = `500 12px ${fontFamily}`;
+    priorityLabelWidth = ctx.measureText(PRIORITY_LABELS[priority as NodePriority].label).width + 6 * 2;
+    ctx.restore();
+  }
+
+  // 间距
+  const betweenLabelGap = (labelWidth > 0 && priorityLabelWidth > 0) ? 6 : 0;
+  const afterLabelGap = (labelWidth > 0 || priorityLabelWidth > 0) ? 6 : 0;
+  const totalLabelWidth = labelWidth + priorityLabelWidth + betweenLabelGap + afterLabelGap;
+
   // 计算文本宽度
-  const singleLineMetrics = ctx.measureText(text.trim() || " ");
-  let width = singleLineMetrics.width + TEXT_PADDING_X * 2 + labelWidth;
-  width = Math.max(MIN_NODE_WIDTH, Math.min(width, MAX_NODE_WIDTH));
-  const maxTextWidth = width - TEXT_PADDING_X * 2 - labelWidth;
-  const lines = splitTextIntoLines(text.trim(), maxTextWidth, ctx);
-  const numLines = lines.length;
-  const lineHeight = FONT_SIZE * 1.2;
-  const calculatedHeight = numLines * lineHeight + TEXT_PADDING_Y * 2;
-  const height = Math.max(NODE_DEFAULT_HEIGHT, calculatedHeight);
+  ctx.save();
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  const minNodeWidth = totalLabelWidth + MIN_TEXT_WIDTH + TEXT_PADDING_X * 2;
+  let width = MAX_NODE_WIDTH;
+  let lastWidth = -1;
+  let lines: string[] = [];
+  let maxLineWidth = 0;
+  while (width !== lastWidth) {
+    lastWidth = width;
+    const maxTextWidth = Math.max(MIN_TEXT_WIDTH, width - totalLabelWidth - TEXT_PADDING_X * 2);
+    lines = splitTextIntoLines(text.trim(), maxTextWidth, ctx);
+    maxLineWidth = 0;
+    for (const line of lines) {
+      maxLineWidth = Math.max(maxLineWidth, ctx.measureText(line).width);
+    }
+    width = Math.min(
+      MAX_NODE_WIDTH,
+      Math.max(
+        minNodeWidth,
+        totalLabelWidth + maxLineWidth + TEXT_PADDING_X * 2
+      )
+    );
+  }
+  ctx.restore();
+
+  // 调试打印
+  console.log('[calculateNodeDimensions]', {
+    text,
+    nodeType,
+    priority,
+    typeConfig,
+    priorityConfig,
+    labelWidth,
+    priorityLabelWidth,
+    betweenLabelGap,
+    afterLabelGap,
+    totalLabelWidth,
+    maxLineWidth,
+    width
+  });
+
+  const lineHeight = fontSize * 1.2;
+  const height = Math.max(NODE_DEFAULT_HEIGHT, lines.length * lineHeight + TEXT_PADDING_Y * 2);
   return { width, height };
 }
 
@@ -181,6 +244,7 @@ const BUILTIN_TYPE_LABELS: Record<string, { label: string; color: string; bg: st
  * @param currentSearchTerm 当前搜索词
  * @param style 节点自定义样式（可选，优先级高于节点默认属性）
  * @param typeConfig 类型配置（可选）
+ * @param priorityConfig 优先级配置（可选）
  */
 export function drawNode(
   ctx: CanvasRenderingContext2D,
@@ -191,7 +255,8 @@ export function drawNode(
   isExactMatch?: boolean,
   currentSearchTerm?: string,
   style?: React.CSSProperties,
-  typeConfig?: any
+  typeConfig?: any,
+  priorityConfig?: MindMapPriorityConfig
 ): void {
   // 匹配高亮样式优先级最高
   let background = (style?.background as string) || (style?.backgroundColor as string) || node.color;
@@ -283,9 +348,7 @@ export function drawNode(
   if (node.nodeType) {
     if (typeConfig && typeConfig.mode === 'custom' && Array.isArray(typeConfig.customTypes)) {
       const custom = typeConfig.customTypes.find((t: any) => t.type === node.nodeType);
-      if (custom) {
-        labelConfig = { label: custom.label, color: custom.color, bg: custom.color + '22' };
-      }
+      if (custom) labelConfig = { label: custom.label, color: custom.color, bg: custom.color + '22' };
     } else if (typeConfig && typeConfig.mode === 'builtin' && BUILTIN_TYPE_LABELS[node.nodeType]) {
       labelConfig = BUILTIN_TYPE_LABELS[node.nodeType];
     } else if (BUILTIN_TYPE_LABELS[node.nodeType]) {
@@ -301,7 +364,7 @@ export function drawNode(
     const labelHeight = 20;
     const labelX = node.position.x + TEXT_PADDING_X;
     const labelY = node.position.y + (node.height - labelHeight) / 2;
-    // 圆角矩形
+    // 绘制类型标签圆角矩形
     ctx.beginPath();
     ctx.moveTo(labelX + 6, labelY);
     ctx.lineTo(labelX + labelWidth - 6, labelY);
@@ -326,51 +389,78 @@ export function drawNode(
     ctx.restore();
   }
 
+  // 优先级标签
+  let priorityLabelWidth = 0;
+  if (priorityConfig?.enabled && typeof node.priority === 'number' && PRIORITY_LABELS[node.priority as NodePriority]) {
+    const pConf = PRIORITY_LABELS[node.priority as NodePriority];
+    ctx.save();
+    ctx.font = `500 12px ${fontFamily}`;
+    const pPaddingX = 6;
+    const pLabelText = pConf.label;
+    priorityLabelWidth = ctx.measureText(pLabelText).width + pPaddingX * 2;
+    const labelHeight = 20;
+    const betweenLabelGap = (labelWidth > 0) ? 6 : 0;
+    const pLabelX = node.position.x + TEXT_PADDING_X + (labelWidth > 0 ? labelWidth + betweenLabelGap : 0);
+    const pLabelY = node.position.y + (node.height - labelHeight) / 2;
+    // 绘制优先级标签圆角矩形
+    ctx.beginPath();
+    ctx.moveTo(pLabelX + 6, pLabelY);
+    ctx.lineTo(pLabelX + priorityLabelWidth - 6, pLabelY);
+    ctx.quadraticCurveTo(pLabelX + priorityLabelWidth, pLabelY, pLabelX + priorityLabelWidth, pLabelY + 6);
+    ctx.lineTo(pLabelX + priorityLabelWidth, pLabelY + labelHeight - 6);
+    ctx.quadraticCurveTo(pLabelX + priorityLabelWidth, pLabelY + labelHeight, pLabelX + priorityLabelWidth - 6, pLabelY + labelHeight);
+    ctx.lineTo(pLabelX + 6, pLabelY + labelHeight);
+    ctx.quadraticCurveTo(pLabelX, pLabelY + labelHeight, pLabelX, pLabelY + labelHeight - 6);
+    ctx.lineTo(pLabelX, pLabelY + 6);
+    ctx.quadraticCurveTo(pLabelX, pLabelY, pLabelX + 6, pLabelY);
+    ctx.closePath();
+    ctx.fillStyle = pConf.bg;
+    ctx.fill();
+    ctx.strokeStyle = pConf.color;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = pConf.color;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(pLabelText, pLabelX + pPaddingX, pLabelY + labelHeight / 2);
+    ctx.restore();
+  }
+
+  // 计算标签区总宽度
+  const betweenLabelGap = (labelWidth > 0 && priorityLabelWidth > 0) ? 6 : 0;
+  const afterLabelGap = (labelWidth > 0 || priorityLabelWidth > 0) ? 6 : 0;
+  const totalLabelWidth = labelWidth + priorityLabelWidth + betweenLabelGap + afterLabelGap;
+
   // --- 文本渲染 ---
   ctx.save();
   ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  const textX = node.position.x + TEXT_PADDING_X + (labelWidth > 0 ? labelWidth + 6 : 0); // 标签后加间距
+  const textX = node.position.x + TEXT_PADDING_X + totalLabelWidth;
   const textY = node.position.y + node.height / 2;
-  const maxTextWidth = node.width - TEXT_PADDING_X * 2 - labelWidth - (labelWidth > 0 ? 6 : 0);
+  const maxTextWidth = Math.max(MIN_TEXT_WIDTH, node.width - totalLabelWidth - TEXT_PADDING_X * 2);
+  // 调试打印
+  console.log('[drawNode]', {
+    text: node.text,
+    nodeType: node.nodeType,
+    priority: node.priority,
+    typeConfig,
+    priorityConfig,
+    labelWidth,
+    priorityLabelWidth,
+    betweenLabelGap,
+    afterLabelGap,
+    totalLabelWidth,
+    nodeWidth: node.width,
+    maxTextWidth
+  });
   const lines = splitTextIntoLines(node.text, maxTextWidth, ctx);
   const lineHeight = Number(fontSize) * 1.2;
   const totalTextHeight = lines.length * lineHeight;
   lines.forEach((line, i) => {
     const lineY = textY - totalTextHeight / 2 + i * lineHeight + lineHeight / 2;
-    if ((isHighlighted || isExactMatch) && currentSearchTerm && currentSearchTerm.trim().length > 0) {
-      // 匹配时，匹配到的文字标红
-      ctx.textAlign = 'left';
-      const searchTermLower = currentSearchTerm.toLowerCase().trim();
-      const lineTextLower = line.toLowerCase();
-      let currentRenderX = textX;
-      let lastIndex = 0;
-      while (lastIndex < line.length) {
-        const matchIndex = lineTextLower.indexOf(searchTermLower, lastIndex);
-        if (matchIndex !== -1) {
-          if (matchIndex > lastIndex) {
-            const preText = line.substring(lastIndex, matchIndex);
-            ctx.fillStyle = textColor;
-            ctx.fillText(preText, currentRenderX, lineY);
-            currentRenderX += ctx.measureText(preText).width;
-          }
-          const matchedText = line.substring(matchIndex, matchIndex + searchTermLower.length);
-          ctx.fillStyle = NODE_SEARCH_TEXT_MATCH_COLOR;
-          ctx.fillText(matchedText, currentRenderX, lineY);
-          currentRenderX += ctx.measureText(matchedText).width;
-          lastIndex = matchIndex + searchTermLower.length;
-        } else {
-          const remainingText = line.substring(lastIndex);
-          ctx.fillStyle = textColor;
-          ctx.fillText(remainingText, currentRenderX, lineY);
-          break;
-        }
-      }
-    } else {
-      ctx.fillStyle = textColor;
-      ctx.fillText(line, textX, lineY);
-    }
+    ctx.fillStyle = textColor;
+    ctx.fillText(line, textX, lineY);
   });
   ctx.restore();
 }

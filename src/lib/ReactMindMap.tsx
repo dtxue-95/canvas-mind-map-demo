@@ -4,7 +4,7 @@ import MindMapCanvas from './components/MindMapCanvas';
 import BottomViewportToolbar from './components/BottomViewportToolbar';
 import SearchWidget from './components/SearchWidget';
 import { useMindMap } from './hooks/useMindMap';
-import { MindMapNode, Command, Point, ToolbarButtonConfig, MindMapState, DataChangeCallback } from './types';
+import { MindMapNode, Command, Point, ToolbarButtonConfig, MindMapState, DataChangeCallback, MindMapPriorityConfig } from './types';
 import { findNodeInAST } from './utils/nodeUtils';
 import { worldToScreen } from './utils/canvasUtils';
 import { getDefaultTopToolbarConfig, getDefaultBottomToolbarConfig } from './defaultConfig';
@@ -90,6 +90,7 @@ export interface ReactMindMapProps {
    */
   getContextMenuGroups?: (node: MindMapNode | null, state: MindMapState) => ContextMenuGroup[];
   typeConfig: any;
+  priorityConfig?: MindMapPriorityConfig;
 }
 
 export default function ReactMindMap({
@@ -112,11 +113,12 @@ export default function ReactMindMap({
   enableContextMenu = true,
   getContextMenuGroups,
   typeConfig,
+  priorityConfig = { enabled: false },
 }: ReactMindMapProps) {
   const appContainerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
-  const mindMapHook = useMindMap(canvasSize, initialData, onDataChangeDetailed, onDataChange, typeConfig);
+  const mindMapHook = useMindMap(canvasSize, initialData, onDataChangeDetailed, onDataChange, typeConfig, priorityConfig);
   const { 
     state, 
     pan, 
@@ -374,6 +376,7 @@ export default function ReactMindMap({
           getContextMenuGroups={getContextMenuGroups}
           // 新增：拖动状态回调
           onDraggingChange={handleDraggingChange}
+          priorityConfig={priorityConfig}
         />
         {/* 缩略图 Minimap，右下角悬浮显示，仅在 rootNode、canvasSize 有效且 showMinimap 时渲染 */}
         {showMinimap && state.rootNode && canvasSize && (

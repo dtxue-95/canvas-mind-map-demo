@@ -16,27 +16,31 @@ const rawInitialDataNone = {
 // 示例2：内置类型模式（推荐结构）
 const rawInitialDataBuiltin = {
   id: '1',
-  text: '项目测试用例',
+  text: '项目测试用例哈哈哈哈哈哈哈哈哈哈哈哈哈哈',
   nodeType: 'rootNode',
+  // priority: 0,
   children: [
     {
       id: '2',
       text: '模块A',
       nodeType: 'moduleNode',
+      priority: 1,
       children: [
         {
           id: '3',
           text: '登录功能',
           nodeType: 'testPointNode',
+          priority: 1,
           children: [
             {
               id: '4',
               text: '登录成功',
               nodeType: 'caseNode',
+              priority: 0,
               children: [
                 { id: '5', text: '已注册用户', nodeType: 'preconditionNode' },
-                { id: '6', text: '输入正确账号密码', nodeType: 'stepNode', children: [
-                  { id: '7', text: '进入首页', nodeType: 'resultNode' }
+                { id: '6', text: '输入正确账号密码', priority: 0, nodeType: 'stepNode', children: [
+                  { id: '7', text: '进入首页', priority: 0, nodeType: 'resultNode' }
                 ] },
                 { id: '8', text: '点击登录按钮', nodeType: 'stepNode', children: [
                   { id: '9', text: '页面跳转', nodeType: 'resultNode' }
@@ -49,7 +53,7 @@ const rawInitialDataBuiltin = {
     },
     {
       id: '10',
-      text: '模块B',
+      text: '模块B哈哈哈哈哈哈哈哈哈',
       nodeType: 'moduleNode',
       children: []
     }
@@ -107,7 +111,7 @@ function App() {
     showBottomToolbar: true,
     readOnly,
     getNodeStyle: (node: MindMapNode) => {
-      if (node.id === '1') return { background: 'blue', color: 'gray', fontWeight: 'bold' };
+      if (node.id === '1') return { background: '#f0f0f0', color: 'gray', fontWeight: 'bold' };
       if (node.text.includes('测试')) return { background: '#e0f7fa', border: '2px solid #00bcd4' };
       return {}
     },
@@ -116,6 +120,7 @@ function App() {
     showMinimap: true,
     enableContextMenu: true,
     typeConfig,
+    priorityConfig: { enabled: true },
   };
 
   return (

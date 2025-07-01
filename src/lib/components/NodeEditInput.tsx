@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { worldToScreen, calculateNodeDimensions } from '../utils/canvasUtils';
-import { NodeEditInputProps, MindMapTypeConfig } from '../types';
+import { NodeEditInputProps, MindMapTypeConfig, PRIORITY_LABELS, NodePriority, MindMapPriorityConfig } from '../types';
 
 const BUILTIN_TYPE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   rootNode: { label: '需求', color: '#8e8e93', bg: '#f4f4f7' },
@@ -25,14 +25,18 @@ function getLabelConfig(nodeType?: string, typeConfig?: MindMapTypeConfig) {
   return undefined;
 }
 
-const NodeEditInput: React.FC<NodeEditInputProps> = ({ node, viewport, onSave, onCancel, canvasBounds, typeConfig, setDynamicWidth }) => {
+const NodeEditInput: React.FC<NodeEditInputProps & { priorityConfig?: MindMapPriorityConfig }> = ({ node, viewport, onSave, onCancel, canvasBounds, typeConfig, setDynamicWidth, priorityConfig }) => {
   const [text, setText] = useState(node.text);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const labelConfig = getLabelConfig(node.nodeType, typeConfig);
+  const priorityConf = typeof node.priority === 'number' && priorityConfig?.enabled ? PRIORITY_LABELS[node.priority as NodePriority] : undefined;
 
   // 动态计算宽高（随输入内容和标签变化）
-  const { width: dynamicWidth, height: dynamicHeight } = calculateNodeDimensions(text, node.nodeType, typeConfig);
+  const fontWeight = 'normal';
+  const fontSize = 16 * viewport.zoom;
+  const fontFamily = 'inherit';
+  const { width: dynamicWidth, height: dynamicHeight } = calculateNodeDimensions(text, node.nodeType, typeConfig, node.priority, priorityConfig, fontWeight, fontSize, fontFamily);
   const nodeScreenPos = canvasBounds ? worldToScreen(node.position, viewport) : { x: 0, y: 0 };
   const nodeScreenWidth = dynamicWidth * viewport.zoom;
   const nodeScreenHeight = dynamicHeight * viewport.zoom;
@@ -133,6 +137,26 @@ const NodeEditInput: React.FC<NodeEditInputProps> = ({ node, viewport, onSave, o
     <div style={containerStyle}>
       {labelConfig && (
         <span style={labelStyle}>{labelConfig.label}</span>
+      )}
+      {priorityConf && (
+        <span style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          height: '24px',
+          borderRadius: '8px',
+          background: priorityConf.bg,
+          color: priorityConf.color,
+          border: `1.5px solid ${priorityConf.color}`,
+          fontWeight: 500,
+          fontSize: `${12 * viewport.zoom}px`,
+          padding: `0 ${6 * viewport.zoom}px`,
+          marginLeft: `${6 * viewport.zoom}px`,
+          marginRight: `${6 * viewport.zoom}px`,
+          userSelect: 'none',
+          whiteSpace: 'nowrap',
+          position: 'relative',
+          zIndex: 2,
+        }}>{priorityConf.label}</span>
       )}
       <textarea
         ref={textareaRef}

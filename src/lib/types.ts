@@ -19,6 +19,16 @@ export interface Point {
   y: number;
 }
 
+// 优先级类型
+export type NodePriority = 0 | 1 | 2 | 3; // 0-P0, 1-P1, 2-P2, 3-P3
+
+export const PRIORITY_LABELS: { [k in NodePriority]: { label: string; color: string; bg: string } } = {
+  0: { label: 'P0', color: '#ff3b30', bg: '#fff0ef' },
+  1: { label: 'P1', color: '#ff9500', bg: '#fff7e6' },
+  2: { label: 'P2', color: '#007aff', bg: '#e6f0ff' },
+  3: { label: 'P3', color: '#8e8e93', bg: '#f4f4f7' },
+};
+
 // 思维导图节点AST（抽象语法树）结构
 export interface MindMapNode {
   id: string;                    // 节点唯一标识符
@@ -33,6 +43,7 @@ export interface MindMapNode {
   childrenCount?: number;        // 子节点数量（折叠时显示）
   style?: React.CSSProperties;   // 节点自定义样式（可选）
   nodeType?: string; // 节点类型
+  priority?: NodePriority; // 节点优先级，0-P0，1-P1，2-P2，3-P3
 }
 
 // 视口状态
@@ -112,7 +123,8 @@ export type MindMapAction =
   | { type: 'GO_TO_PREVIOUS_MATCH' }
   | { type: 'UNDO' }
   | { type: 'REDO' }
-  | { type: 'REPLACE_STATE', payload: { past: MindMapState[], present: MindMapState, future: MindMapState[] } };
+  | { type: 'REPLACE_STATE', payload: { past: MindMapState[], present: MindMapState, future: MindMapState[] } }
+  | { type: 'SET_PRIORITY_CONFIG'; payload: { priorityConfig: MindMapPriorityConfig } };
 
 // This interface is now defined and exported from useMindMap.ts
 
@@ -127,6 +139,7 @@ export interface MindMapState {
   highlightedNodeIds: Set<string>;
   currentMatchIndex: number;
   currentMatchNodeId: string | null;
+  priorityConfig?: MindMapPriorityConfig;
 }
 
 // 操作类型枚举
@@ -184,6 +197,7 @@ export interface NodeEditInputProps {
   canvasBounds: DOMRect | null;          // 画布边界
   typeConfig?: MindMapTypeConfig;        // 类型配置（用于标签渲染）
   setDynamicWidth?: (width: number) => void; // 新增：编辑时动态宽度回调
+  priorityConfig?: MindMapPriorityConfig; // 新增：优先级标签配置
 }
 
 // 搜索组件属性
@@ -249,6 +263,7 @@ export interface ReactMindMapProps {
    */
   getNodeStyle?: (node: MindMapNode, state: MindMapState) => React.CSSProperties;
   typeConfig?: MindMapTypeConfig;
+  priorityConfig?: MindMapPriorityConfig; // 新增：优先级标签配置
 }
 
 // 内置节点类型约束配置
@@ -282,4 +297,9 @@ export const BUILTIN_NODE_TYPE_CONFIG = {
     canAddChildren: [],
   }
 };
+
+// 优先级标签控制配置
+export interface MindMapPriorityConfig {
+  enabled: boolean; // 是否启用优先级标签
+}
 
