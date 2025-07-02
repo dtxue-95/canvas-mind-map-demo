@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useMindMap } from '../hooks/useMindMap';
-import { MindMapNode, Point, Viewport, MindMapState, MindMapPriorityConfig } from '../types'; // Changed Node to MindMapNode
+import { MindMapNode, Point, Viewport, MindMapState, MindMapPriorityConfig, LineType, EdgeConfig } from '../types'; // Changed Node to MindMapNode
 import {
   drawNode, drawConnection, isPointInNode, screenToWorld, drawCollapseButton
 } from '../utils/canvasUtils';
@@ -71,6 +71,8 @@ interface MindMapCanvasProps {
    */
   onDraggingChange?: (dragging: boolean) => void;
   priorityConfig?: MindMapPriorityConfig;
+  lineType?: LineType;
+  showArrow?: boolean;
 }
 
 // Helper function to find the node at a given point in the AST
@@ -104,7 +106,7 @@ function canEditPriority(node: any, priorityConfig: any, isReadOnly: boolean) {
   return true;
 }
 
-const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground, enableContextMenu = true, getContextMenuGroups, onDraggingChange, priorityConfig }) => {
+const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground, enableContextMenu = true, getContextMenuGroups, onDraggingChange, priorityConfig, lineType = 'polyline', showArrow = false }) => {
   const {
     state, setSelectedNode, setEditingNode, zoom, pan,
     updateNodeText, addNode: mindMapAddNode, deleteNode: mindMapDeleteNode,
@@ -127,6 +129,8 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; node: MindMapNode | null }>({ visible: false, x: 0, y: 0, node: null });
   const [editingNodeDynamicWidth, setEditingNodeDynamicWidth] = useState<number | null>(null);
   const didFitViewRef = useRef(false);
+  const [dashOffset, setDashOffset] = useState(0);
+  const hasAnimatedDashed = useRef(false);
 
   const getMenuCommandState = (nodeId: string) => ({
     ...state,
@@ -153,9 +157,34 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    let running = true;
+    function animate() {
+      setDashOffset(prev => (prev + 2) % 1000);
+      if (running) requestAnimationFrame(animate);
+    }
+    running = true;
+    animate();
+    return () => { running = false; };
+  }, []);
+
+  useEffect(() => {
+    // 触发 canvas 重绘
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) {
+        // 这里假设有 drawAll 或 drawCanvas 函数，直接触发重绘
+        // 你可以用已有的 drawAll 逻辑
+        // drawAll();
+        // 这里直接触发一次 re-render
+        setCurrentCanvasSize(size => ({ ...size }));
+      }
+    }
+  }, [dashOffset]);
+
   const drawBranchRecursive = useCallback((
     ctx: CanvasRenderingContext2D,
-    node: MindMapNode | null, // Takes the AST node directly
+    node: MindMapNode | null,
     currentViewport: Readonly<Viewport>,
     currentSelectedNodeId: string | null,
     currentEditingNodeId: string | null,
@@ -185,8 +214,8 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
 
     // 2. If the node is not collapsed and has children, draw connections
     if (!node.isCollapsed && node.children && node.children.length > 0) {
-      for (const childNode of node.children) { // Children are now MindMapNode objects
-        if (childNode) { // childNode is already the object
+      for (const childNode of node.children) {
+        if (childNode) {
           const parentAnchor: Point = {
             x: node.position.x + node.width,
             y: node.position.y + node.height / 2,
@@ -195,7 +224,19 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
             x: childNode.position.x,
             y: childNode.position.y + childNode.height / 2,
           };
-          drawConnection(ctx, parentAnchor, childAnchor);
+          // 优先节点 edgeConfig，否则全局
+          const edgeConf: EdgeConfig = childNode.edgeConfig || node.edgeConfig || { type: lineType, showArrow };
+          const edgeType = edgeConf.type || lineType;
+          const isAnimated = edgeType === 'animated-dashed';
+          if (isAnimated) hasAnimatedDashed.current = true;
+          drawConnection(
+            ctx,
+            parentAnchor,
+            childAnchor,
+            edgeType,
+            edgeConf.showArrow ?? showArrow,
+            isAnimated ? dashOffset : 0
+          );
         }
       }
     }
@@ -213,7 +254,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
         }
       }
     }
-  }, []);
+  }, [getNodeStyle, state, mindMapHookInstance.typeConfig, priorityConfig, lineType, showArrow, dashOffset]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -288,7 +329,9 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
             drawConnection(
               ctx,
               { x: nodeRightX, y: node.position.y + node.height / 2 },
-              { x: childNode.position.x, y: childNode.position.y + childNode.height / 2 }
+              { x: childNode.position.x, y: childNode.position.y + childNode.height / 2 },
+              lineType,
+              showArrow
             );
           }
         }

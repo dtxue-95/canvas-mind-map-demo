@@ -29,6 +29,14 @@ export const PRIORITY_LABELS: { [k in NodePriority]: { label: string; color: str
   3: { label: 'P3', color: '#8e8e93', bg: '#f4f4f7' },
 };
 
+// 连线类型
+export type LineType = 'polyline' | 'rounded' | 'bezier' | 'dashed' | 'animated-dashed';
+// 连线配置
+export interface EdgeConfig {
+  type?: LineType; // 连线类型
+  showArrow?: boolean; // 是否显示箭头
+}
+
 // 思维导图节点AST（抽象语法树）结构
 export interface MindMapNode {
   id: string;                    // 节点唯一标识符
@@ -44,6 +52,7 @@ export interface MindMapNode {
   style?: React.CSSProperties;   // 节点自定义样式（可选）
   nodeType?: string; // 节点类型
   priority?: NodePriority; // 节点优先级，0-P0，1-P1，2-P2，3-P3
+  edgeConfig?: EdgeConfig; // 新增：节点级连线配置
 }
 
 // 视口状态

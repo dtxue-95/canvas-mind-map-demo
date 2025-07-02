@@ -443,3 +443,52 @@ useEffect(() => {
 - 该修复已验证，彻底解决搜索框失焦后无法用键盘切换匹配节点的问题。
 
 --- 
+
+## 【2024-07-02~03】连线类型、箭头、虚线动画等功能优化与用法说明
+
+### 1. 新增连线类型与箭头 API
+- 支持通过全局 props 或节点 edgeConfig 灵活控制连线类型（lineType）和是否显示箭头（showArrow）。
+- 支持的 lineType：
+  - 'polyline'：直角折线（默认）
+  - 'rounded'：带弧度的折线（仅折角处有圆角，水平/垂直线无弧度，弧度方向始终朝内）
+  - 'bezier'：平滑贝塞尔曲线
+  - 'dashed'：静态虚线折线
+  - 'animated-dashed'：流动虚线（蚂蚁线动画）---目前还是有问题
+
+### 2. 箭头优化
+- 所有连线类型的箭头均为小灰色实心三角形，顶点正好指向目标节点，底边垂直于连线方向。
+- 箭头方向始终与连线终点的切线方向一致，视觉自然。
+
+### 3. rounded 类型优化
+- 只有折角处有圆角，水平/垂直直线无弧度。
+- 圆角方向始终朝内，视觉与主流思维导图一致。
+
+### 4. 虚线与流动虚线
+- 'dashed' 类型为静态虚线折线，样式与 polyline 一致但为虚线。
+- 'animated-dashed' 类型为流动虚线，虚线段会自动动画流动（蚂蚁线效果），适合高亮路径等场景。
+- animated-dashed 动画帧始终运行，canvas 每帧强制重绘，保证动画流畅。
+
+### 5. 用法示例
+```tsx
+// 全局控制
+<ReactMindMap lineType="rounded" showArrow={true} ... />
+<ReactMindMap lineType="animated-dashed" showArrow={true} ... />
+
+// 节点级控制（优先级高于全局）
+{
+  ...,
+  edgeConfig: { type: 'bezier', showArrow: false }
+}
+{
+  ...,
+  edgeConfig: { type: 'animated-dashed', showArrow: true }
+}
+```
+
+### 6. 相关问题与修复说明
+- rounded 早期实现为贝塞尔，现已修正为 arcTo 圆角折线，且只在折角处有圆角。
+- 箭头早期为"V"型线段，现已统一为实心三角形，且方向始终正确。
+- animated-dashed 早期动画不流动，现已修复为每帧强制重绘，动画效果流畅。
+- 所有类型均支持全局/节点级灵活配置，兼容性与扩展性良好。
+
+--- 

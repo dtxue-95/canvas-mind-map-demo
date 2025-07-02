@@ -1,4 +1,4 @@
-import { MindMapNode as MindMapNode, Point, Viewport, PRIORITY_LABELS, NodePriority, MindMapPriorityConfig } from '../types';
+import { MindMapNode as MindMapNode, Point, Viewport, PRIORITY_LABELS, NodePriority, MindMapPriorityConfig, LineType } from '../types';
 import { 
   FONT_FAMILY, FONT_SIZE, NODE_BORDER_RADIUS, 
   TEXT_PADDING_X, TEXT_PADDING_Y, CONNECTION_LINE_COLOR, CONNECTION_LINE_WIDTH,
@@ -511,21 +511,123 @@ export function drawCollapseButton(
  * @param ctx Canvas上下文
  * @param parentAnchor 父节点锚点
  * @param childAnchor 子节点锚点
+ * @param type 连接线类型
+ * @param showArrow 是否显示箭头
+ * @param dashOffset 虚线流动偏移量
  */
 export function drawConnection(
   ctx: CanvasRenderingContext2D,
   parentAnchor: Point,
-  childAnchor: Point
+  childAnchor: Point,
+  type: LineType = 'polyline',
+  showArrow: boolean = false,
+  dashOffset: number = 0
 ): void {
+  ctx.save();
   ctx.beginPath();
-  const midX = parentAnchor.x + CHILD_H_SPACING / 3;
-  ctx.moveTo(parentAnchor.x, parentAnchor.y);
-  ctx.lineTo(midX, parentAnchor.y);
-  ctx.lineTo(midX, childAnchor.y);
-  ctx.lineTo(childAnchor.x, childAnchor.y);
+  if (type === 'polyline') {
+    const midX = parentAnchor.x + (childAnchor.x - parentAnchor.x) / 3;
+    ctx.moveTo(parentAnchor.x, parentAnchor.y);
+    ctx.lineTo(midX, parentAnchor.y);
+    ctx.lineTo(midX, childAnchor.y);
+    ctx.lineTo(childAnchor.x, childAnchor.y);
+  } else if (type === 'dashed') {
+    ctx.save();
+    ctx.setLineDash([8, 6]);
+    const midX = parentAnchor.x + (childAnchor.x - parentAnchor.x) / 3;
+    ctx.moveTo(parentAnchor.x, parentAnchor.y);
+    ctx.lineTo(midX, parentAnchor.y);
+    ctx.lineTo(midX, childAnchor.y);
+    ctx.lineTo(childAnchor.x, childAnchor.y);
+    ctx.strokeStyle = CONNECTION_LINE_COLOR;
+    ctx.lineWidth = CONNECTION_LINE_WIDTH / ctx.getTransform().a;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    ctx.beginPath();
+  } else if (type === 'animated-dashed') {
+    ctx.save();
+    ctx.setLineDash([8, 6]);
+    ctx.lineDashOffset = dashOffset;
+    const midX = parentAnchor.x + (childAnchor.x - parentAnchor.x) / 3;
+    ctx.moveTo(parentAnchor.x, parentAnchor.y);
+    ctx.lineTo(midX, parentAnchor.y);
+    ctx.lineTo(midX, childAnchor.y);
+    ctx.lineTo(childAnchor.x, childAnchor.y);
+    ctx.strokeStyle = CONNECTION_LINE_COLOR;
+    ctx.lineWidth = CONNECTION_LINE_WIDTH / ctx.getTransform().a;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    ctx.beginPath();
+  } else if (type === 'rounded') {
+    // 圆角折线：只有折角处有圆角，水平直线无弧度，弧度方向朝内
+    const r = 16;
+    const midX = parentAnchor.x + (childAnchor.x - parentAnchor.x) / 3;
+    ctx.moveTo(parentAnchor.x, parentAnchor.y);
+    if (Math.abs(parentAnchor.y - childAnchor.y) < 1e-2) {
+      // 水平直线
+      ctx.lineTo(childAnchor.x, childAnchor.y);
+    } else {
+      // 先水平到 midX - r
+      ctx.lineTo(midX - r, parentAnchor.y);
+      // 圆角过渡到 (midX, parentAnchor.y + r) 再到 (midX, childAnchor.y - r)
+      const sign = Math.sign(childAnchor.y - parentAnchor.y) || 1;
+      ctx.arcTo(midX, parentAnchor.y, midX, parentAnchor.y + r * sign, r);
+      // 垂直到 childAnchor.y - r
+      ctx.lineTo(midX, childAnchor.y - r * sign);
+      // 圆角过渡到 (midX + r, childAnchor.y) 再到 (childAnchor.x, childAnchor.y)
+      ctx.arcTo(midX, childAnchor.y, midX + r, childAnchor.y, r);
+      ctx.lineTo(childAnchor.x, childAnchor.y);
+    }
+  } else if (type === 'bezier') {
+    const cp1x = parentAnchor.x + (childAnchor.x - parentAnchor.x) / 2;
+    ctx.moveTo(parentAnchor.x, parentAnchor.y);
+    ctx.bezierCurveTo(cp1x, parentAnchor.y, cp1x, childAnchor.y, childAnchor.x, childAnchor.y);
+  }
   ctx.strokeStyle = CONNECTION_LINE_COLOR;
   ctx.lineWidth = CONNECTION_LINE_WIDTH / ctx.getTransform().a;
   ctx.stroke();
+  // 箭头
+  if (showArrow) {
+    let arrowAngle = 0;
+    if (type === 'polyline' || type === 'rounded') {
+      // 折线/圆角折线，终点前一个拐点
+      const midX = parentAnchor.x + (childAnchor.x - parentAnchor.x) / 3;
+      const lastPoint = { x: midX, y: childAnchor.y };
+      arrowAngle = Math.atan2(childAnchor.y - lastPoint.y, childAnchor.x - lastPoint.x);
+    } else if (type === 'bezier') {
+      // 贝塞尔曲线切线方向（t=1）
+      const cp1x = parentAnchor.x + (childAnchor.x - parentAnchor.x) / 2;
+      const cp1y1 = parentAnchor.y;
+      const cp1y2 = childAnchor.y;
+      // 三次贝塞尔一阶导数 t=1: 3*(P3-P2)
+      const dx = 3 * (childAnchor.x - cp1x);
+      const dy = 3 * (childAnchor.y - cp1y2);
+      arrowAngle = Math.atan2(dy, dx);
+    }
+    const arrowLen = 12; // 箭头长度
+    const arrowWidth = 8; // 箭头底边宽
+    // 计算三角形三个点
+    const tipX = childAnchor.x;
+    const tipY = childAnchor.y;
+    const baseX = tipX - arrowLen * Math.cos(arrowAngle);
+    const baseY = tipY - arrowLen * Math.sin(arrowAngle);
+    const leftX = baseX + (arrowWidth / 2) * Math.sin(arrowAngle);
+    const leftY = baseY - (arrowWidth / 2) * Math.cos(arrowAngle);
+    const rightX = baseX - (arrowWidth / 2) * Math.sin(arrowAngle);
+    const rightY = baseY + (arrowWidth / 2) * Math.cos(arrowAngle);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(leftX, leftY);
+    ctx.lineTo(rightX, rightY);
+    ctx.closePath();
+    ctx.fillStyle = '#bbb'; // 小灰色
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 /**

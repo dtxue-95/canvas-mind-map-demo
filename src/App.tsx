@@ -137,6 +137,9 @@ function App() {
       typeWhiteList: ['caseNode'] // 只有这些类型节点才显示添加/修改优先级
 
     },
+    lineType: 'polyline',    // 'polyline' | 'rounded' | 'bezier' | 'dashed' | 'animated-dashed' 贝塞尔曲线不要使用箭头
+    showArrow: true,       // 是否显示箭头
+    
   };
 
   return (
