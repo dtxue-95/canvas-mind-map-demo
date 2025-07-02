@@ -346,6 +346,22 @@ export default function ReactMindMap({
     }
   }, [isSearchVisible]);
 
+  // 全局监听上下键，搜索面板可见时响应
+  useEffect(() => {
+    if (!isSearchVisible) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        goToNextMatch();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        goToPreviousMatch();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSearchVisible, goToNextMatch, goToPreviousMatch]);
+
   useEffect(() => {
     const updateSize = () => {
       if (canvasContainerRef.current) {

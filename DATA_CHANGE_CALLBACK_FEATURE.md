@@ -407,3 +407,39 @@ useEffect(() => {
 - 该修复已验证，彻底解决搜索自动居中导致的死循环问题。
 
 --- 
+
+## 【2024-07-02】搜索上下键全局可用问题修复越改越多
+
+### 现象
+- 搜索框失去焦点后，使用键盘上下键无法切换/查找下一个或上一个匹配节点。
+- 只有搜索框有焦点时，键盘上下键才有效。
+
+### 根因
+- 上下键事件只在搜索输入框内监听，失去焦点后事件无法冒泡到全局，导致无法切换。
+- 没有全局监听上下键事件。
+
+### 修复方案
+- 在 ReactMindMap.tsx 中全局监听上下键，搜索面板可见时响应，调用 goToNextMatch/goToPreviousMatch，无论焦点是否在输入框都能切换。
+
+### 关键代码
+```js
+// ReactMindMap.tsx
+useEffect(() => {
+  if (!isSearchVisible) return;
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      goToNextMatch();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      goToPreviousMatch();
+    }
+  };
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+}, [isSearchVisible, goToNextMatch, goToPreviousMatch]);
+```
+
+- 该修复已验证，彻底解决搜索框失焦后无法用键盘切换匹配节点的问题。
+
+--- 
