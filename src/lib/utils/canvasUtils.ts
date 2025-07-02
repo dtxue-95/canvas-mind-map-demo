@@ -439,29 +439,25 @@ export function drawNode(
   const textX = node.position.x + TEXT_PADDING_X + totalLabelWidth;
   const textY = node.position.y + node.height / 2;
   const maxTextWidth = Math.max(MIN_TEXT_WIDTH, node.width - totalLabelWidth - TEXT_PADDING_X * 2);
-  // 调试打印
-  console.log('[drawNode]', {
-    text: node.text,
-    nodeType: node.nodeType,
-    priority: node.priority,
-    typeConfig,
-    priorityConfig,
-    labelWidth,
-    priorityLabelWidth,
-    betweenLabelGap,
-    afterLabelGap,
-    totalLabelWidth,
-    nodeWidth: node.width,
-    maxTextWidth
-  });
-  const lines = splitTextIntoLines(node.text, maxTextWidth, ctx);
-  const lineHeight = Number(fontSize) * 1.2;
-  const totalTextHeight = lines.length * lineHeight;
-  lines.forEach((line, i) => {
-    const lineY = textY - totalTextHeight / 2 + i * lineHeight + lineHeight / 2;
-    ctx.fillStyle = textColor;
-    ctx.fillText(line, textX, lineY);
-  });
+  // 搜索高亮
+  if (currentSearchTerm && node.text && node.text.toLowerCase().includes(currentSearchTerm.toLowerCase())) {
+    const parts = node.text.split(new RegExp(`(${currentSearchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+    let offsetX = textX;
+    for (const part of parts) {
+      ctx.fillStyle = part.toLowerCase() === currentSearchTerm.toLowerCase() ? 'red' : textColor;
+      ctx.fillText(part, offsetX, textY);
+      offsetX += ctx.measureText(part).width;
+    }
+  } else {
+    const lines = splitTextIntoLines(node.text, maxTextWidth, ctx);
+    const lineHeight = Number(fontSize) * 1.2;
+    const totalTextHeight = lines.length * lineHeight;
+    lines.forEach((line, i) => {
+      const lineY = textY - totalTextHeight / 2 + i * lineHeight + lineHeight / 2;
+      ctx.fillStyle = textColor;
+      ctx.fillText(line, textX, lineY);
+    });
+  }
   ctx.restore();
 }
 

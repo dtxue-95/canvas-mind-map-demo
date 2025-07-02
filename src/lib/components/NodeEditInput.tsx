@@ -25,7 +25,18 @@ function getLabelConfig(nodeType?: string, typeConfig?: MindMapTypeConfig) {
   return undefined;
 }
 
-const NodeEditInput: React.FC<NodeEditInputProps & { priorityConfig?: MindMapPriorityConfig }> = ({ node, viewport, onSave, onCancel, canvasBounds, typeConfig, setDynamicWidth, priorityConfig }) => {
+// 新增高亮函数
+function highlightText(text: string, searchTerm: string) {
+  if (!searchTerm) return text;
+  const parts = text.split(new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+  return parts.map((part, i) =>
+    part.toLowerCase() === searchTerm.toLowerCase()
+      ? <span key={i} style={{ color: 'red' }}>{part}</span>
+      : part
+  );
+}
+
+const NodeEditInput: React.FC<NodeEditInputProps & { priorityConfig?: MindMapPriorityConfig, isReadOnly?: boolean }> = ({ node, viewport, onSave, onCancel, canvasBounds, typeConfig, setDynamicWidth, priorityConfig, isReadOnly }) => {
   const [text, setText] = useState(node.text);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -160,15 +171,22 @@ const NodeEditInput: React.FC<NodeEditInputProps & { priorityConfig?: MindMapPri
       {priorityConf && (
         <span style={priorityLabelStyle}>{priorityConf.label}</span>
       )}
-      <textarea
-        ref={textareaRef}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={handleKeyDown}
-        onBlur={handleSave}
-        style={textareaStyle}
-        aria-label="编辑节点文本"
-      />
+      {/* 只读时渲染高亮文本，编辑时仍用 textarea */}
+      {isReadOnly ? (
+        <div style={{ ...textareaStyle, background: 'transparent', border: 'none', outline: 'none', padding: 0 }}>
+          {highlightText(text, (window as any).currentSearchTerm || '')}
+        </div>
+      ) : (
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={handleSave}
+          style={textareaStyle}
+          aria-label="编辑节点文本"
+        />
+      )}
     </div>
   );
 };

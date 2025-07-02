@@ -126,7 +126,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
   const [canvasBounds, setCanvasBounds] = useState<DOMRect | null>(null);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; node: MindMapNode | null }>({ visible: false, x: 0, y: 0, node: null });
   const [editingNodeDynamicWidth, setEditingNodeDynamicWidth] = useState<number | null>(null);
-
+  const didFitViewRef = useRef(false);
 
   const getMenuCommandState = (nodeId: string) => ({
     ...state,
@@ -139,7 +139,6 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       setCanvasBounds(canvas.getBoundingClientRect());
     }
   }, [currentCanvasSize]);
-
 
   useEffect(() => {
     const handleResize = () => {
@@ -215,7 +214,6 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       }
     }
   }, []);
-
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -447,8 +445,6 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     setContextMenu({ visible: true, x: e.clientX, y: e.clientY, node });
   };
 
-
-
   // 右键菜单分组
   const { fitView, centerView, dispatch } = mindMapHookInstance;
   const contextMenuGroups: ContextMenuGroup[] = getContextMenuGroups
@@ -628,8 +624,14 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     };
   }, [zoom]);
 
-  const nodeToEdit = editingNodeId ? findNodeInAST(rootNode, editingNodeId) : null;
+  useEffect(() => {
+    if (state.rootNode && !didFitViewRef.current) {
+      fitView();
+      didFitViewRef.current = true;
+    }
+  }, [state.rootNode]);
 
+  const nodeToEdit = editingNodeId ? findNodeInAST(rootNode, editingNodeId) : null;
 
   return (
     <div className="flex-grow w-full h-full relative overflow-hidden bg-gray-200" style={{ cursor: isPanning ? 'grabbing' : (isDraggingNode && !isReadOnly ? 'move' : 'default') }}>

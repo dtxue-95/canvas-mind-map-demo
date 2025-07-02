@@ -1,12 +1,12 @@
-import { useReducer, useCallback, useEffect, useRef } from 'react';
-import { MindMapNode, Point, Viewport, MindMapAction, AddNodePayload, DeleteNodePayload, MindMapState, DataChangeCallback, DataChangeInfo, OperationType, MindMapTypeConfig } from '../types';
+import { useReducer, useCallback, useEffect, useRef, useMemo } from 'react';
+import { MindMapNode, Point, Viewport, MindMapAction, AddNodePayload, DeleteNodePayload, MindMapState, DataChangeCallback, DataChangeInfo, OperationType, MindMapTypeConfig, MindMapPriorityConfig, NodePriority } from '../types';
 import { INITIAL_ZOOM, MIN_ZOOM, MAX_ZOOM, ZOOM_SENSITIVITY, CHILD_H_SPACING, NODE_DEFAULT_COLOR, NODE_TEXT_COLOR } from '../constants';
 import { countAllDescendants, deepCopyAST, findNodeAndParentInAST, findNodeInAST, transformToMindMapNode } from '../utils/nodeUtils';
 import { applyLayout } from '../layoutEngine';
 import { rawInitialData as defaultRawData } from '../initialData';
 
 
-function getInitialMindMapState(priorityConfig?: any): MindMapState {
+function getInitialMindMapState(priorityConfig?: MindMapPriorityConfig): MindMapState {
   return {
     rootNode: null,
     selectedNodeId: null,
@@ -22,7 +22,7 @@ function getInitialMindMapState(priorityConfig?: any): MindMapState {
   };
 }
 
-function createMindMapReducer(typeConfig?: any, priorityConfig?: any) {
+function createMindMapReducer(typeConfig?: MindMapTypeConfig, priorityConfig?: MindMapPriorityConfig) {
   return function mindMapReducer(state: MindMapState = getInitialMindMapState(priorityConfig), action: MindMapAction): MindMapState {
     switch (action.type) {
       case 'REPLACE_STATE': // Special action to replace the whole state for history reset
@@ -32,7 +32,7 @@ function createMindMapReducer(typeConfig?: any, priorityConfig?: any) {
         return { ...state, priorityConfig: (action as any).payload?.priorityConfig ?? state.priorityConfig };
       case 'ADD_NODE': {
         if (!state.rootNode) return state; // Or handle creating a root node
-        const { text, parentId, nodeType } = (action as any).payload;
+        const { text, parentId, nodeType }: AddNodePayload = action.payload;
         const newRoot = deepCopyAST(state.rootNode);
         const parent = parentId ? findNodeInAST(newRoot, parentId) : newRoot;
         if (!parent) {
@@ -61,7 +61,7 @@ function createMindMapReducer(typeConfig?: any, priorityConfig?: any) {
       }
       case 'DELETE_NODE': {
         if (!state.rootNode) return state;
-        const { nodeId } = (action as { type: 'DELETE_NODE', payload: DeleteNodePayload }).payload;
+        const { nodeId }: DeleteNodePayload = action.payload;
 
         if (state.rootNode.id === nodeId) {
           console.error("DELETE_NODE: Cannot delete the root node.");
@@ -114,7 +114,9 @@ function createMindMapReducer(typeConfig?: any, priorityConfig?: any) {
           traverseAndCount(copiedRoot);
         }
         const laidOutData = copiedRoot ? applyLayout(copiedRoot, typeConfig, state.priorityConfig) : null;
-        return { ...state, rootNode: laidOutData, selectedNodeId: laidOutData ? laidOutData.id : null, viewport: { x: (0 + CHILD_H_SPACING / 2), y: 0, zoom: INITIAL_ZOOM }, priorityConfig: action.payload?.priorityConfig ?? state.priorityConfig };
+        // 判空处理 priorityConfig
+        const payload = action.payload as { rootNode: MindMapNode | null; priorityConfig?: MindMapPriorityConfig };
+        return { ...state, rootNode: laidOutData, selectedNodeId: laidOutData ? laidOutData.id : null, viewport: { x: (0 + CHILD_H_SPACING / 2), y: 0, zoom: INITIAL_ZOOM }, priorityConfig: payload.priorityConfig ?? state.priorityConfig };
       }
       case 'UPDATE_NODE_TEXT': {
         const { nodeId, text } = action.payload;
@@ -192,7 +194,7 @@ function createMindMapReducer(typeConfig?: any, priorityConfig?: any) {
         if (!state.rootNode) return state;
         const newRoot = deepCopyAST(state.rootNode);
         const node = findNodeInAST(newRoot, nodeId);
-        if (node) node.priority = priority;
+        if (node) node.priority = priority as NodePriority;
         const laidOutRoot = applyLayout(newRoot, typeConfig, state.priorityConfig);
         return { ...state, rootNode: laidOutRoot };
       }
@@ -317,14 +319,14 @@ export function useMindMap(
   onDataChangeDetailed?: DataChangeCallback,
   onDataChange?: (data: MindMapNode) => void,
   typeConfig?: MindMapTypeConfig,
-  priorityConfig?: any
+  priorityConfig?: MindMapPriorityConfig
 ) {
-  const initialMindMapState = getInitialMindMapState(priorityConfig);
+  const initialMindMapState: MindMapState = getInitialMindMapState(priorityConfig && typeof priorityConfig === 'object' ? priorityConfig : { enabled: false });
   const [state, dispatch] = useReducer(historyReducer, undefined, () => historyReducer({
     past: [],
     present: initialMindMapState,
     future: [],
-  }, { type: 'INIT_MAP', payload: { priorityConfig } } as any));
+  }, { type: 'INIT_MAP', payload: { priorityConfig: priorityConfig && typeof priorityConfig === 'object' ? priorityConfig : { enabled: false } } } as MindMapAction));
 
   // 创建数据变更信息的辅助函数
   const createDataChangeInfo = useCallback((
@@ -390,7 +392,9 @@ export function useMindMap(
 
   // 初始化时赋值 priorityConfig
   useEffect(() => {
-    dispatch({ type: 'SET_PRIORITY_CONFIG', payload: { priorityConfig } });
+    if (priorityConfig && typeof priorityConfig === 'object') {
+      dispatch({ type: 'SET_PRIORITY_CONFIG', payload: { priorityConfig } });
+    }
   }, [priorityConfig]);
 
   const { state: presentState, dispatch: historyDispatch } = { state: state.present, dispatch };
@@ -581,9 +585,7 @@ export function useMindMap(
   const zoomOut = useCallback(() => zoomWithRatio(1 / 1.2), [zoomWithRatio]);
 
   const fitView = useCallback((centerOnly = false) => {
-    // console.log('fitView', centerOnly, presentState.rootNode, canvasSize);
-    if (!presentState.rootNode) { console.log('fitView return: no rootNode'); return; }
-    // if (!canvasSize) { console.log('fitView return: no canvasSize'); return; }
+    if (!presentState.rootNode || !canvasSize) { console.log('fitView return: no rootNode or canvasSize'); return; }
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     function getBoundsRecursive(node: MindMapNode) {
       minX = Math.min(minX, node.position.x);
@@ -595,30 +597,25 @@ export function useMindMap(
     getBoundsRecursive(presentState.rootNode);
     const contentWidth = maxX - minX;
     const contentHeight = maxY - minY;
-    // if (contentWidth <= 0 || contentHeight <= 0) { console.log('fitView return: invalid content size'); return; }
     const padding = 50;
     const newZoom = centerOnly ? presentState.viewport.zoom : Math.min((canvasSize.width - padding * 2) / contentWidth, (canvasSize.height - padding * 2) / contentHeight, MAX_ZOOM);
     const newX = (canvasSize.width / 2) - ((minX + contentWidth / 2) * newZoom);
     const newY = (canvasSize.height / 2) - ((minY + contentHeight / 2) * newZoom);
-    // console.log('fitView computed', { newX, newY, newZoom });
     setViewport({ x: newX, y: newY, zoom: newZoom });
   }, [presentState.rootNode, canvasSize, presentState.viewport.zoom, setViewport]);
 
   const centerView = useCallback(() => {
-    // console.log('centerView', state.present.selectedNodeId, state.present.rootNode, canvasSize);
-    // if (!canvasSize) { console.log('centerView return: no canvasSize'); return; }
-    // if (!state.present.rootNode) { console.log('centerView return: no rootNode'); return; }
+    if (!canvasSize || !state.present.rootNode) return;
     const nodeToCenterId = state.present.selectedNodeId || state.present.rootNode.id;
     const node = findNodeInAST(state.present.rootNode, nodeToCenterId);
-    // if (!node) { console.log('centerView return: no node to center'); return; }
+    if (!node) return;
     const nodeCenter = { x: node.position.x + node.width / 2, y: node.position.y + node.height / 2 };
     const newX = canvasSize.width / 2 - nodeCenter.x * state.present.viewport.zoom;
     const newY = canvasSize.height / 2 - nodeCenter.y * state.present.viewport.zoom;
-    console.log('centerView computed', { newX, newY });
     setViewport({ x: newX, y: newY });
   }, [canvasSize, state.present.rootNode, state.present.selectedNodeId, state.present.viewport.zoom, setViewport]);
 
-  const setSearchTerm = useCallback((term: string) => historyDispatch({ type: 'SET_SEARCH_TERM', payload: term }), []);
+  const setSearchTerm = useCallback((term: string) => historyDispatch({ type: 'SET_SEARCH_TERM', payload: term }), [historyDispatch]);
   const toggleReadOnlyMode = useCallback((value?: boolean) => {
     const newIsReadOnly = value === undefined ? !presentState.isReadOnly : value;
     historyDispatch({ type: 'SET_READ_ONLY', payload: { isReadOnly: newIsReadOnly } });
@@ -828,7 +825,8 @@ export function useMindMap(
     return result.length === idChain.length ? result : undefined;
   }
 
-  return {
+  // 末尾 return 用 useMemo 包裹，保证所有方法引用稳定
+  return useMemo(() => ({
     state: presentState,
     dispatch: historyDispatch,
     canUndo: state.past.length > 0,
@@ -841,5 +839,9 @@ export function useMindMap(
     centerView,
     typeConfig,
     priorityConfig
-  };
+  }), [
+    presentState, historyDispatch, state.past.length, state.future.length,
+    undo, redo, addNode, deleteNode, setSelectedNode, setEditingNode, setViewport, pan, zoom, fitView, setSearchTerm, toggleReadOnlyMode, toggleNodeCollapse, goToNextMatch, goToPreviousMatch, updateNodeText,
+    zoomIn, zoomOut, centerView, typeConfig, priorityConfig
+  ]);
 }

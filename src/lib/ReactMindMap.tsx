@@ -182,19 +182,31 @@ export default function ReactMindMap({
     // eslint-disable-next-line
   }, [state.editingNodeId, state.selectedNodeId, state.rootNode, canvasSize]);
 
-  // 自动居中到当前搜索匹配的节点
+  // 在组件顶部添加
+  const lastCenteredMatchId = useRef<string | null>(null);
+
+  // 替换原自动居中 useEffect
   useEffect(() => {
-    if (state.currentMatchNodeId && state.rootNode && canvasSize) {
+    if (
+      state.currentMatchNodeId &&
+      state.rootNode &&
+      canvasSize &&
+      lastCenteredMatchId.current !== state.currentMatchNodeId
+    ) {
       const nodeToFocus = findNodeInAST(state.rootNode, state.currentMatchNodeId);
       if (nodeToFocus) {
         const nodeCenterWorld: Point = { x: nodeToFocus.position.x + nodeToFocus.width / 2, y: nodeToFocus.position.y + nodeToFocus.height / 2 };
         const newX = (canvasSize.width / 2) - (nodeCenterWorld.x * state.viewport.zoom);
         const newY = (canvasSize.height / 2) - (nodeCenterWorld.y * state.viewport.zoom);
         mindMapHook.setViewport({ x: newX, y: newY });
+        lastCenteredMatchId.current = state.currentMatchNodeId; // 标记已居中
       }
     }
-  }, [state.currentMatchNodeId, state.rootNode, canvasSize, state.viewport.zoom, mindMapHook.setViewport, pan]);
-
+    // 当搜索词清空时，重置标志
+    if (!state.currentMatchNodeId) {
+      lastCenteredMatchId.current = null;
+    }
+  }, [state.currentMatchNodeId, state.rootNode, canvasSize, state.viewport.zoom, mindMapHook.setViewport]);
 
   const zoomPercentage = Math.round(state.viewport.zoom * 100);
 
@@ -327,12 +339,12 @@ export default function ReactMindMap({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [state, canUndo, canRedo, handlers]);
 
-  // 当搜索框关闭时，自动清空搜索词和结果
+  // 搜索框关闭时清空搜索词，依赖只写 isSearchVisible，避免 setSearchTerm 引用变化导致死循环
   useEffect(() => {
     if (!isSearchVisible) {
       setSearchTerm('');
     }
-  }, [isSearchVisible, setSearchTerm]);
+  }, [isSearchVisible]);
 
   useEffect(() => {
     const updateSize = () => {
@@ -416,3 +428,5 @@ export default function ReactMindMap({
 }
 
 export { Panel };
+
+

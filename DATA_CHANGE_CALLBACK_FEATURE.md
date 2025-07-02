@@ -356,3 +356,54 @@ useEffect(() => {
 - 业务效果：优先级菜单交互体验与主流产品一致，支持"点击+悬停"双方式展开，视觉更美观，交互更流畅。
 
 --- 
+
+## 2024-07-10 初始渲染自动适应视图（fitView）优化
+
+- 优化：思维导图初始渲染时，自动调用 fitView，保证导图内容始终居中、适应画布。
+- 技术实现：在 MindMapCanvas 组件内监听 rootNode 初始化，首次渲染后自动触发 fitView，仅执行一次，不影响后续用户交互。
+- 业务效果：用户打开页面即获得最佳视野，无需手动缩放或拖动画布。
+
+--- 
+
+## 【2024-07-02】搜索自动居中死循环问题修复
+
+### 现象
+- 在搜索框输入任意值后，控制台持续报错 `useMindMap.ts:445 Warning: Maximum update depth exceeded.`，页面卡死。
+- 清空搜索框后恢复正常。
+
+### 根因
+- ReactMindMap.tsx 中"自动居中到当前搜索匹配节点"的 useEffect，每次 setViewport 都会导致 state 变化，进而再次触发自身，形成死循环。
+- 只有搜索词非空、currentMatchNodeId 存在时才会触发。
+
+### 修复方案
+- 用 useRef 记录已居中节点 id，只在 currentMatchNodeId 变化时 setViewport，彻底断开 setState 死循环。
+
+### 关键代码
+```js
+// ReactMindMap.tsx
+const lastCenteredMatchId = useRef<string | null>(null);
+useEffect(() => {
+  if (
+    state.currentMatchNodeId &&
+    state.rootNode &&
+    canvasSize &&
+    lastCenteredMatchId.current !== state.currentMatchNodeId
+  ) {
+    const nodeToFocus = findNodeInAST(state.rootNode, state.currentMatchNodeId);
+    if (nodeToFocus) {
+      const nodeCenterWorld = { x: nodeToFocus.position.x + nodeToFocus.width / 2, y: nodeToFocus.position.y + nodeToFocus.height / 2 };
+      const newX = (canvasSize.width / 2) - (nodeCenterWorld.x * state.viewport.zoom);
+      const newY = (canvasSize.height / 2) - (nodeCenterWorld.y * state.viewport.zoom);
+      mindMapHook.setViewport({ x: newX, y: newY });
+      lastCenteredMatchId.current = state.currentMatchNodeId;
+    }
+  }
+  if (!state.currentMatchNodeId) {
+    lastCenteredMatchId.current = null;
+  }
+}, [state.currentMatchNodeId, state.rootNode, canvasSize, state.viewport.zoom, mindMapHook.setViewport]);
+```
+
+- 该修复已验证，彻底解决搜索自动居中导致的死循环问题。
+
+--- 
