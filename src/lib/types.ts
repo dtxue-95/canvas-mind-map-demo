@@ -302,8 +302,9 @@ export const BUILTIN_NODE_TYPE_CONFIG = {
 // 优先级标签控制配置
 export interface MindMapPriorityConfig {
   enabled: boolean;
-  editable?: boolean; // 是否允许编辑优先级
-  options?: Array<{ value: number; label: string; color?: string }>; // 优先级选项
+  editable?: boolean;
+  options?: Array<{ value: number; label: string; color?: string }>;
+  typeWhiteList?: string[]; // 允许编辑/添加优先级的节点类型
   // ...其他配置
 }
 

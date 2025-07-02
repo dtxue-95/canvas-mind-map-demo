@@ -65,15 +65,34 @@ const NodeEditInput: React.FC<NodeEditInputProps & { priorityConfig?: MindMapPri
   const labelStyle: React.CSSProperties = labelConfig ? {
     display: 'inline-flex',
     alignItems: 'center',
-    height: '24px',
-    borderRadius: '8px',
+    height: `${24 * viewport.zoom}px`,
+    borderRadius: `${8 * viewport.zoom}px`,
     background: labelConfig.bg,
     color: labelConfig.color,
-    border: `1.5px solid ${labelConfig.color}`,
+    border: `${1.5 * viewport.zoom}px solid ${labelConfig.color}`,
     fontWeight: 500,
     fontSize: `${12 * viewport.zoom}px`,
     padding: `0 ${6 * viewport.zoom}px`,
     marginLeft: `${12 * viewport.zoom}px`,
+    marginRight: `${6 * viewport.zoom}px`,
+    userSelect: 'none',
+    whiteSpace: 'nowrap',
+    position: 'relative',
+    zIndex: 2,
+  } : {};
+
+  const priorityLabelStyle: React.CSSProperties = priorityConf ? {
+    display: 'inline-flex',
+    alignItems: 'center',
+    height: `${24 * viewport.zoom}px`,
+    borderRadius: `${8 * viewport.zoom}px`,
+    background: priorityConf.bg,
+    color: priorityConf.color,
+    border: `${1.5 * viewport.zoom}px solid ${priorityConf.color}`,
+    fontWeight: 500,
+    fontSize: `${12 * viewport.zoom}px`,
+    padding: `0 ${6 * viewport.zoom}px`,
+    marginLeft: `${6 * viewport.zoom}px`,
     marginRight: `${6 * viewport.zoom}px`,
     userSelect: 'none',
     whiteSpace: 'nowrap',
@@ -139,24 +158,7 @@ const NodeEditInput: React.FC<NodeEditInputProps & { priorityConfig?: MindMapPri
         <span style={labelStyle}>{labelConfig.label}</span>
       )}
       {priorityConf && (
-        <span style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          height: '24px',
-          borderRadius: '8px',
-          background: priorityConf.bg,
-          color: priorityConf.color,
-          border: `1.5px solid ${priorityConf.color}`,
-          fontWeight: 500,
-          fontSize: `${12 * viewport.zoom}px`,
-          padding: `0 ${6 * viewport.zoom}px`,
-          marginLeft: `${6 * viewport.zoom}px`,
-          marginRight: `${6 * viewport.zoom}px`,
-          userSelect: 'none',
-          whiteSpace: 'nowrap',
-          position: 'relative',
-          zIndex: 2,
-        }}>{priorityConf.label}</span>
+        <span style={priorityLabelStyle}>{priorityConf.label}</span>
       )}
       <textarea
         ref={textareaRef}

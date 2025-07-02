@@ -11,6 +11,7 @@ import { getDefaultTopToolbarConfig, getDefaultBottomToolbarConfig } from './def
 import { FiMaximize, FiMinimize } from 'react-icons/fi';
 import Minimap from './components/Minimap';
 import { ContextMenuGroup } from './components/ContextMenu';
+import Panel from './components/Panel';
 
 // Import all commands
 import { undoCommand } from './commands/undoCommand';
@@ -413,3 +414,5 @@ export default function ReactMindMap({
     </div>
   );
 }
+
+export { Panel };

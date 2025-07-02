@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ReactMindMap, type ReactMindMapProps, type MindMapNode, type DataChangeInfo, OperationType } from './lib';
 import { FaSave } from 'react-icons/fa';
+import { Panel } from './lib/ReactMindMap';
 
 // 示例1：无类型模式（所有节点为普通节点）
 const rawInitialDataNone = {
@@ -39,12 +40,16 @@ const rawInitialDataBuiltin = {
               priority: 0,
               children: [
                 { id: '5', text: '已注册用户', nodeType: 'preconditionNode' },
-                { id: '6', text: '输入正确账号密码', priority: 0, nodeType: 'stepNode', children: [
-                  { id: '7', text: '进入首页', priority: 0, nodeType: 'resultNode' }
-                ] },
-                { id: '8', text: '点击登录按钮', nodeType: 'stepNode', children: [
-                  { id: '9', text: '页面跳转', nodeType: 'resultNode' }
-                ] },
+                {
+                  id: '6', text: '输入正确账号密码', priority: 0, nodeType: 'stepNode', children: [
+                    { id: '7', text: '进入首页', priority: 0, nodeType: 'resultNode' }
+                  ]
+                },
+                {
+                  id: '8', text: '点击登录按钮', nodeType: 'stepNode', children: [
+                    { id: '9', text: '页面跳转', nodeType: 'resultNode' }
+                  ]
+                },
               ]
             }
           ]
@@ -66,9 +71,11 @@ const rawInitialDataCustom = {
   text: '自定义根',
   nodeType: 'customRoot',
   children: [
-    { id: '2', text: 'A类型节点', nodeType: 'A', children: [
-      { id: '3', text: 'B类型节点', nodeType: 'B' }
-    ] }
+    {
+      id: '2', text: 'A类型节点', nodeType: 'A', children: [
+        { id: '3', text: 'B类型节点', nodeType: 'B' }
+      ]
+    }
   ]
 };
 
@@ -120,17 +127,25 @@ function App() {
     showMinimap: true,
     enableContextMenu: true,
     typeConfig,
-    priorityConfig: { enabled: true, editable: true,     options: [
-      { value: 0, label: 'P0', color: '#ff3b30' },
-      { value: 1, label: 'P1', color: '#ff9500' },
-      { value: 2, label: 'P2', color: '#007aff' },
-      { value: 3, label: 'P3', color: '#8e8e93' }
-    ] },
+    priorityConfig: {
+      enabled: true, editable: true, options: [
+        { value: 0, label: 'P0', color: '#ff3b30' },
+        { value: 1, label: 'P1', color: '#ff9500' },
+        { value: 2, label: 'P2', color: '#007aff' },
+        { value: 3, label: 'P3', color: '#8e8e93' }
+      ],
+      typeWhiteList: ['caseNode'] // 只有这些类型节点才显示添加/修改优先级
+
+    },
   };
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
+      <Panel position="top-right">
+        <div>Hello</div>
+      </Panel>
       <ReactMindMap {...mindMapProps} />
+
     </div>
   );
 }

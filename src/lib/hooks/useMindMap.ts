@@ -50,7 +50,12 @@ function createMindMapReducer(typeConfig?: any, priorityConfig?: any) {
           isCollapsed: false,
           ...(nodeType ? { nodeType } : {}),
         };
-        parent.children.push(newNode);
+        // 优化：前置条件节点始终插入用例下第一个
+        if (parent.nodeType === 'caseNode' && newNode.nodeType === 'preconditionNode') {
+          parent.children.unshift(newNode);
+        } else {
+          parent.children.push(newNode);
+        }
         const laidOutRoot = applyLayout(newRoot, typeConfig, state.priorityConfig);
         return { ...state, rootNode: laidOutRoot, selectedNodeId: newNode.id };
       }

@@ -96,7 +96,13 @@ function findNodeInASTFromPoint(
   return null;
 }
 
-
+// 判断节点类型是否允许编辑/添加优先级
+function canEditPriority(node: any, priorityConfig: any, isReadOnly: boolean) {
+  if (!priorityConfig || !priorityConfig.enabled || !priorityConfig.editable || isReadOnly) return false;
+  if (!Array.isArray(priorityConfig.options) || priorityConfig.options.length === 0) return false;
+  if (priorityConfig.typeWhiteList && !priorityConfig.typeWhiteList.includes(node.nodeType)) return false;
+  return true;
+}
 
 const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground, enableContextMenu = true, getContextMenuGroups, onDraggingChange, priorityConfig }) => {
   const {
@@ -469,22 +475,22 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
               },
             ]
           },
-          // 新增：修改优先级二级菜单
-          ...(priorityConfig && priorityConfig.enabled && priorityConfig.editable && !isReadOnly && typeof contextMenu.node!.priority === 'number' && Array.isArray(priorityConfig.options) && priorityConfig.options.length > 0
+          // 新增：添加/修改优先级二级菜单
+          ...(contextMenu.node && canEditPriority(contextMenu.node, priorityConfig, isReadOnly)
             ? [{
-              actions: [
-                {
-                  key: 'edit-priority',
-                  label: '修改优先级',
-                  onClick: () => { },
-                  children: priorityConfig.options.map(opt => ({
-                    key: 'priority-' + opt.value,
-                    label: <PriorityLabel label={opt.label} color={opt.color || '#888'} bg={(opt.color ? opt.color + '22' : '#f4f4f7')} />,
-                    onClick: () => dispatch({ type: 'UPDATE_NODE_PRIORITY', payload: { nodeId: contextMenu.node!.id, priority: opt.value } })
-                  }))
-                }
-              ]
-            }]
+                actions: [
+                  {
+                    key: (typeof contextMenu.node.priority === 'number') ? 'edit-priority' : 'add-priority',
+                    label: (typeof contextMenu.node.priority === 'number') ? '修改优先级' : '添加优先级',
+                    onClick: () => {},
+                    children: priorityConfig && Array.isArray(priorityConfig.options) ? priorityConfig.options.map(opt => ({
+                      key: 'priority-' + opt.value,
+                      label: <PriorityLabel label={opt.label} color={opt.color || '#888'} bg={(opt.color ? opt.color + '22' : '#f4f4f7')} />,
+                      onClick: () => dispatch({ type: 'UPDATE_NODE_PRIORITY', payload: { nodeId: contextMenu.node!.id, priority: opt.value } })
+                    })) : []
+                  }
+                ]
+              }]
             : []),
           {
             actions: [
@@ -511,15 +517,16 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
 
         ].filter(group => group.actions.length > 0)
         :
-        {  // 空白处菜单
-          actions: [
-            { key: 'expand-all', label: expandAllCommand.label, icon: <FaExpand />, onClick: () => expandAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !expandAllCommand.canExecute(state) },
-            { key: 'collapse-all', label: collapseAllCommand.label, icon: <FaCompress />, onClick: () => collapseAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !collapseAllCommand.canExecute(state) },
-            { key: 'center-view', label: centerViewCommand.label, icon: <FiCrosshair />, onClick: () => centerViewCommand.execute(state, { centerView }), disabled: !centerViewCommand.canExecute(state) },
-            { key: 'fit-view', label: fitViewCommand.label, icon: <FiBox />, onClick: () => fitViewCommand.execute(state, { fitView }), disabled: !fitViewCommand.canExecute(state) },
-          ]
-        }
-
+        [
+          {
+            actions: [
+              { key: 'expand-all', label: expandAllCommand.label, icon: <FaExpand />, onClick: () => expandAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !expandAllCommand.canExecute(state) },
+              { key: 'collapse-all', label: collapseAllCommand.label, icon: <FaCompress />, onClick: () => collapseAllCommand.execute(state, { dispatch: mindMapHookInstance.dispatch }), disabled: !collapseAllCommand.canExecute(state) },
+              { key: 'center-view', label: centerViewCommand.label, icon: <FiCrosshair />, onClick: () => centerViewCommand.execute(state, { centerView }), disabled: !centerViewCommand.canExecute(state) },
+              { key: 'fit-view', label: fitViewCommand.label, icon: <FiBox />, onClick: () => fitViewCommand.execute(state, { fitView }), disabled: !fitViewCommand.canExecute(state) },
+            ]
+          }
+        ]
     );
 
   useEffect(() => {
