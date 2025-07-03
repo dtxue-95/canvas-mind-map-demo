@@ -48,7 +48,7 @@ export const addChildNodeCommand: Command = {
       }
       return null;
     };
-    const node = findNode(state.rootNode, state.selectedNodeId);
+    const node = findNode(state.rootNode, state.selectedNodeId || '');
     if (!node) return;
     const typeConf = BUILTIN_NODE_TYPE_CONFIG[node.nodeType as keyof typeof BUILTIN_NODE_TYPE_CONFIG];
     if (!typeConf) {

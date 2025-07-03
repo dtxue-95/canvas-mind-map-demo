@@ -52,7 +52,7 @@ export const addSiblingNodeCommand: Command = {
       }
       return null;
     };
-    const node = findNode(state.rootNode, state.selectedNodeId);
+    const node = findNode(state.rootNode, state.selectedNodeId || '');
     if (!node) return;
     const type = node.nodeType;
     // 找到父节点

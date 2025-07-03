@@ -21,31 +21,31 @@ interface ContextMenuProps {
   onClose: () => void;
 }
 
-function PriorityLabel({ label, color, bg }: { label: string; color: string; bg?: string }) {
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        height: 24,
-        borderRadius: 8,
-        background: bg || '#fff',
-        color,
-        border: `1.5px solid ${color}`,
-        fontWeight: 500,
-        fontSize: 14,
-        padding: '0 12px',
-        userSelect: 'none',
-        whiteSpace: 'nowrap',
-        boxSizing: 'border-box',
-        minWidth: 36,
-        justifyContent: 'center'
-      }}
-    >
-      {label}
-    </span>
-  );
-}
+// function PriorityLabel({ label, color, bg }: { label: string; color: string; bg?: string }) {
+//   return (
+//     <span
+//       style={{
+//         display: 'inline-flex',
+//         alignItems: 'center',
+//         height: 24,
+//         borderRadius: 8,
+//         background: bg || '#fff',
+//         color,
+//         border: `1.5px solid ${color}`,
+//         fontWeight: 500,
+//         fontSize: 14,
+//         padding: '0 12px',
+//         userSelect: 'none',
+//         whiteSpace: 'nowrap',
+//         boxSizing: 'border-box',
+//         minWidth: 36,
+//         justifyContent: 'center'
+//       }}
+//     >
+//       {label}
+//     </span>
+//   );
+// }
 
 const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, groups, onClose }) => {
   const menuRef = React.useRef<HTMLDivElement>(null);
@@ -56,8 +56,8 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, groups, onClos
 
   React.useEffect(() => {
     if (!visible) return;
-    setSubmenuState(null);
-    setSubmenuActive(false);
+    // setSubmenuState(null);
+    // setSubmenuActive(false);
     const handle = (e: MouseEvent) => {
       if (menuRef.current && menuRef.current.contains(e.target as Node)) return;
       onClose();
