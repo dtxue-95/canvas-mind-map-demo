@@ -56,6 +56,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, groups, onClos
 
   React.useEffect(() => {
     if (!visible) return;
+    // 这里不能清空，否则二级菜单会消失
     // setSubmenuState(null);
     // setSubmenuActive(false);
     const handle = (e: MouseEvent) => {
