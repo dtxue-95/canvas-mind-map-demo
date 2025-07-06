@@ -486,6 +486,7 @@ useEffect(() => {
 ```
 
 ### 6. 相关问题与修复说明---
+
 - rounded 早期实现为贝塞尔，现已修正为 arcTo 圆角折线，且只在折角处有圆角。
 - 箭头早期为"V"型线段，现已统一为实心三角形，且方向始终正确。
 - animated-dashed 早期动画不流动，现已修复为每帧强制重绘，动画效果流畅。
@@ -637,5 +638,60 @@ message.custom({ content: '自定义类型', duration: 4000 });
 3. **典型用法**
 - 拖拽时自动校验业务规则，违规时自动全局 message 提示，无需手动处理。
 - 拖拽完成后可通过 onDataChangeDetailed 获取最新数据和链路，推荐用于自动保存、导出、埋点等场景。
+
+--- 
+
+## 2024-07-11 导出能力、辅助线与全局消息等近期优化
+
+### 1. 专业导出能力全面上线
+- 新增 ExportController 组件，支持一键导出思维导图为图片（PNG/JPEG）、SVG、PDF、Markdown、XMind、Txt、JSON、纯净数据等主流格式。
+- 支持通过 API 控制显示哪些导出类型（visibleTypes），可灵活定制导出菜单。
+- 所有导出均为专业格式，XMind 为标准 .xmind 文件，Markdown/Txt 为专业大纲格式。
+- 支持通过 ref.open() 控制弹窗显示，getData/getCanvas/getSvg 提供导出内容。
+- 典型用法：
+```tsx
+const exportRef = useRef<ExportControllerRef>(null);
+<ExportController
+  ref={exportRef}
+  visibleTypes={['image', 'svg', 'pdf', 'markdown', 'xmind', 'txt', 'json', 'pure']}
+  getData={getData}
+  getCanvas={getCanvas}
+  getSvg={getSvg}
+/>
+// 触发弹窗
+exportRef.current?.open();
+```
+- 推荐在 App 或 ReactMindMap 外层挂载一份 ExportController，通过 ref 控制弹窗。
+
+### 2. 辅助线与拖拽判定体验优化
+- 拖拽节点时辅助线仅为细绿色虚线，无粗线和圆点，视觉更清爽。
+- 辅助线始终连到目标节点右侧中点，吸附判定只要进入外围区域即可。
+- 拖拽时父节点不再吸附，吸附判定自动排除父节点，避免误操作。
+- 相关判定和绘制逻辑已在 MindMapCanvas 内部优化，体验与主流思维导图一致。
+- 典型用法：无需额外配置，升级后自动生效。
+
+### 3. 全局消息能力与右键菜单增强
+- 新增全局 message 单例对象，支持 message.success/info/error/warning/custom 方式弹窗，无需手动挂载 MessageBox。
+- 右键菜单支持二级菜单，优先级变更等操作已纳入全局数据流和回调。
+- 典型用法：
+```js
+import message from './lib/components/message';
+message.success('操作成功！');
+message.error('出错了');
+```
+
+### 4. 其它典型用法与最佳实践
+- 推荐所有外部只读/保存/导出场景均通过 onDataChangeDetailed 获取最新数据，避免直接操作内部状态。
+- 导出按钮建议通过 topToolbarCustomButtons 传递给 ReactMindMap，action 直接调用 exportRef.current?.open()。
+- 典型用法：
+```tsx
+const exportButton = {
+  id: 'export',
+  label: '导出',
+  icon: FaDownload,
+  action: () => exportRef.current?.open(),
+};
+<ReactMindMap topToolbarCustomButtons={[exportButton]} ... />
+```
 
 --- 
