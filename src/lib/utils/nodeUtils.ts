@@ -161,3 +161,26 @@ export function transformToMindMapNode(obj: any): MindMapNode {
   // 尺寸和位置将由布局引擎后续计算和设置
   return newNode;
 }
+
+/**
+ * 获取节点的纯净原始数据（递归去除所有渲染/运行时属性，仅保留初始业务字段）
+ * @param node 当前节点
+ * @returns 纯净数据对象
+ */
+export function pureNodeData(node: MindMapNode): any {
+  if (!node) return node;
+  const {
+    id,
+    text,
+    nodeType,
+    priority,
+    children
+  } = node;
+  const result: any = { id, text };
+  if (nodeType) result.nodeType = nodeType;
+  if (priority !== undefined) result.priority = priority;
+  if (children && Array.isArray(children) && children.length > 0) {
+    result.children = children.map(pureNodeData);
+  }
+  return result;
+}

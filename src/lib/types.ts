@@ -161,6 +161,7 @@ export enum OperationType {
   UNDO = 'UNDO',
   REDO = 'REDO',
   LOAD_DATA = 'LOAD_DATA',
+  UPDATE_NODE_PRIORITY = 'UPDATE_NODE_PRIORITY',
 }
 
 // 数据变更信息

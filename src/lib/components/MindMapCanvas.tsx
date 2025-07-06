@@ -110,7 +110,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
   const {
     state, setSelectedNode, setEditingNode, zoom, pan,
     updateNodeText, addNode: mindMapAddNode, deleteNode: mindMapDeleteNode,
-    toggleNodeCollapse
+    toggleNodeCollapse, updateNodePriority
   } = mindMapHookInstance;
   const {
     rootNode, // Changed from nodes and rootId
@@ -521,11 +521,13 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
                   {
                     key: (typeof contextMenu.node.priority === 'number') ? 'edit-priority' : 'add-priority',
                     label: (typeof contextMenu.node.priority === 'number') ? '修改优先级' : '添加优先级',
-                    onClick: () => {},
+                    onClick: () => {
+                      // 默认点击主菜单时，弹出二级菜单，不做任何变更
+                    },
                     children: priorityConfig && Array.isArray(priorityConfig.options) ? priorityConfig.options.map(opt => ({
                       key: 'priority-' + opt.value,
                       label: <PriorityLabel label={opt.label} color={opt.color || '#888'} bg={(opt.color ? opt.color + '22' : '#f4f4f7')} />,
-                      onClick: () => dispatch({ type: 'UPDATE_NODE_PRIORITY', payload: { nodeId: contextMenu.node!.id, priority: opt.value } })
+                      onClick: () => updateNodePriority(contextMenu.node!.id, opt.value)
                     })) : []
                   }
                 ]
@@ -602,6 +604,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedNodeId) {
           if (currentSelectedNode && currentSelectedNode.id === rootNode?.id && (!rootNode.children || rootNode.children.length === 0)) {
+            // 删除最后一个节点时，弹出提示，后面改用组件
             alert("Cannot delete the last node.");
           } else {
             mindMapDeleteNode(selectedNodeId);

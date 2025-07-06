@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { ReactMindMap, type ReactMindMapProps, type MindMapNode, type DataChangeInfo, OperationType } from './lib';
 import { FaSave } from 'react-icons/fa';
 import { Panel } from './lib/ReactMindMap';
+import { pureNodeData } from './lib/utils/nodeUtils';
 
 // 示例1：无类型模式（所有节点为普通节点）
 const rawInitialDataNone = {
@@ -108,7 +109,12 @@ function App() {
   const initialDataRef = useRef(data);
 
   const handleDataChangeDetailed = (changeInfo: DataChangeInfo) => {
+    console.log('changeInfo', changeInfo);
     console.log('最新数据', changeInfo.currentData);
+
+    // pureNodeData 纯净数据
+    console.log('changeInfo.pureNodeData', pureNodeData(changeInfo.currentData as MindMapNode));
+   
   };
 
   const mindMapProps: ReactMindMapProps = {

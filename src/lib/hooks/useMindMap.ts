@@ -798,6 +798,47 @@ export function useMindMap(
     }, 0);
   }, [state.future.length, presentState.rootNode, historyDispatch, state, createDataChangeInfo, triggerDataChangeCallback, onDataChange]);
 
+  // 新增：优先级变更统一回调
+  const updateNodePriority = useCallback((nodeId: string, priority: number) => {
+    const previousData = deepCopyAST(presentState.rootNode);
+    historyDispatch({ type: 'UPDATE_NODE_PRIORITY', payload: { nodeId, priority } });
+    setTimeout(() => {
+      const updatedState = historyReducer(state, { type: 'UPDATE_NODE_PRIORITY', payload: { nodeId, priority } });
+      const currentData = updatedState.present.rootNode;
+      const updatedNode = currentData ? findNodeInAST(currentData, nodeId) : undefined;
+      let parentResult: { node: MindMapNode; parent: MindMapNode | null } | null = null;
+      if (currentData) {
+        parentResult = findNodeAndParentInAST(currentData, nodeId);
+      }
+      const idChain = nodeId ? (findIdChain(currentData, nodeId) || undefined) : undefined;
+      const parentIdChain = parentResult?.parent ? (findIdChain(currentData, parentResult.parent.id) || undefined) : undefined;
+      const currentNode = updatedNode || undefined;
+      const parentNode = parentResult?.parent || undefined;
+      const idChainNodes = findNodeChain(currentData, idChain);
+      const parentIdChainNodes = findNodeChain(currentData, parentIdChain);
+      const changeInfo = {
+        ...createDataChangeInfo(
+          OperationType.UPDATE_NODE_PRIORITY,
+          currentData,
+          previousData,
+          [nodeId],
+          undefined,
+          undefined,
+          updatedNode ? [updatedNode] : undefined,
+          `更新优先级: ${updatedNode?.text || nodeId} -> ${priority}`
+        ),
+        idChain,
+        parentIdChain,
+        currentNode,
+        parentNode,
+        idChainNodes,
+        parentIdChainNodes,
+      };
+      triggerDataChangeCallback(changeInfo);
+      if (onDataChange && currentData) onDataChange(currentData);
+    }, 0);
+  }, [presentState.rootNode, historyDispatch, state, createDataChangeInfo, triggerDataChangeCallback, onDataChange]);
+
   // 辅助函数：查找 id 链路
   function findIdChain(root: MindMapNode | null, targetId: string): string[] | null {
     if (!root) return null;
@@ -838,10 +879,11 @@ export function useMindMap(
     zoomOut,
     centerView,
     typeConfig,
-    priorityConfig
+    priorityConfig,
+    updateNodePriority
   }), [
     presentState, historyDispatch, state.past.length, state.future.length,
     undo, redo, addNode, deleteNode, setSelectedNode, setEditingNode, setViewport, pan, zoom, fitView, setSearchTerm, toggleReadOnlyMode, toggleNodeCollapse, goToNextMatch, goToPreviousMatch, updateNodeText,
-    zoomIn, zoomOut, centerView, typeConfig, priorityConfig
+    zoomIn, zoomOut, centerView, typeConfig, priorityConfig, updateNodePriority
   ]);
 }
