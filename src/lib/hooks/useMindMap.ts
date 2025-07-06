@@ -198,6 +198,38 @@ function createMindMapReducer(typeConfig?: MindMapTypeConfig, priorityConfig?: M
         const laidOutRoot = applyLayout(newRoot, typeConfig, state.priorityConfig);
         return { ...state, rootNode: laidOutRoot };
       }
+      case 'MOVE_NODE': {
+        if (!state.rootNode) return state;
+        const { dragNodeId, targetParentId } = action.payload;
+        if (dragNodeId === targetParentId) return state;
+        const newRoot = deepCopyAST(state.rootNode);
+        // 找到拖拽节点及其父节点
+        const dragResult = findNodeAndParentInAST(newRoot, dragNodeId);
+        if (!dragResult || !dragResult.node) return state;
+        const { node: dragNode, parent: oldParent } = dragResult;
+        // 找到目标父节点
+        const targetParent = findNodeInAST(newRoot, targetParentId);
+        if (!targetParent) return state;
+        // 不能拖到自己或自己子孙节点下
+        let isDescendant = false;
+        function checkDescendant(node: MindMapNode) {
+          if (node.id === dragNodeId) isDescendant = true;
+          node.children.forEach(checkDescendant);
+        }
+        checkDescendant(dragNode);
+        if (isDescendant && targetParentId === dragNodeId) return state;
+        // 从原父节点移除
+        if (oldParent) {
+          oldParent.children = oldParent.children.filter(child => child.id !== dragNodeId);
+        } else {
+          // 拖 root，不允许
+          return state;
+        }
+        // 挂到新父节点下
+        targetParent.children.push(dragNode);
+        const laidOutRoot = applyLayout(newRoot, typeConfig, state.priorityConfig);
+        return { ...state, rootNode: laidOutRoot, selectedNodeId: dragNode.id };
+      }
       default: return state;
     }
   }
@@ -866,6 +898,47 @@ export function useMindMap(
     return result.length === idChain.length ? result : undefined;
   }
 
+  // 新增：移动节点
+  const moveNode = useCallback((dragNodeId: string, targetParentId: string) => {
+    const previousData = deepCopyAST(presentState.rootNode);
+    historyDispatch({ type: 'MOVE_NODE', payload: { dragNodeId, targetParentId } });
+    setTimeout(() => {
+      const updatedState = historyReducer(state, { type: 'MOVE_NODE', payload: { dragNodeId, targetParentId } });
+      const currentData = updatedState.present.rootNode;
+      const movedNode = currentData ? findNodeInAST(currentData, dragNodeId) : undefined;
+      let parentResult: { node: MindMapNode; parent: MindMapNode | null } | null = null;
+      if (currentData) {
+        parentResult = findNodeAndParentInAST(currentData, dragNodeId);
+      }
+      const idChain = dragNodeId ? (findIdChain(currentData, dragNodeId) || undefined) : undefined;
+      const parentIdChain = parentResult?.parent ? (findIdChain(currentData, parentResult.parent.id) || undefined) : undefined;
+      const currentNode = movedNode || undefined;
+      const parentNode = parentResult?.parent || undefined;
+      const idChainNodes = findNodeChain(currentData, idChain);
+      const parentIdChainNodes = findNodeChain(currentData, parentIdChain);
+      const changeInfo = {
+        ...createDataChangeInfo(
+          OperationType.MOVE_NODE || 'MOVE_NODE',
+          currentData,
+          previousData,
+          [dragNodeId],
+          undefined,
+          undefined,
+          movedNode ? [movedNode] : undefined,
+          `移动节点: ${movedNode?.text || dragNodeId} 到 ${parentNode?.text || targetParentId}`
+        ),
+        idChain,
+        parentIdChain,
+        currentNode,
+        parentNode,
+        idChainNodes,
+        parentIdChainNodes,
+      };
+      triggerDataChangeCallback(changeInfo);
+      if (onDataChange && currentData) onDataChange(currentData);
+    }, 0);
+  }, [presentState.rootNode, historyDispatch, state, createDataChangeInfo, triggerDataChangeCallback, onDataChange]);
+
   // 末尾 return 用 useMemo 包裹，保证所有方法引用稳定
   return useMemo(() => ({
     state: presentState,
@@ -880,10 +953,11 @@ export function useMindMap(
     centerView,
     typeConfig,
     priorityConfig,
-    updateNodePriority
+    updateNodePriority,
+    moveNode
   }), [
     presentState, historyDispatch, state.past.length, state.future.length,
     undo, redo, addNode, deleteNode, setSelectedNode, setEditingNode, setViewport, pan, zoom, fitView, setSearchTerm, toggleReadOnlyMode, toggleNodeCollapse, goToNextMatch, goToPreviousMatch, updateNodeText,
-    zoomIn, zoomOut, centerView, typeConfig, priorityConfig, updateNodePriority
+    zoomIn, zoomOut, centerView, typeConfig, priorityConfig, updateNodePriority, moveNode
   ]);
 }

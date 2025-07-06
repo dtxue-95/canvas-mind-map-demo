@@ -119,7 +119,7 @@ export type MindMapAction =
   | { type: 'ADD_NODE'; payload: AddNodePayload }
   | { type: 'DELETE_NODE'; payload: DeleteNodePayload }
   | { type: 'UPDATE_NODE_TEXT'; payload: { nodeId: string; text: string } }
-  | { type: 'MOVE_NODE'; payload: { nodeId: string; position: Point } }
+  | { type: 'MOVE_NODE'; payload: { dragNodeId: string; targetParentId: string } }
   | { type: 'SET_SELECTED_NODE'; payload: { nodeId: string | null } }
   | { type: 'SET_EDITING_NODE'; payload: { nodeId: string | null } }
   | { type: 'SET_VIEWPORT'; payload: Partial<Viewport> }
@@ -162,6 +162,7 @@ export enum OperationType {
   REDO = 'REDO',
   LOAD_DATA = 'LOAD_DATA',
   UPDATE_NODE_PRIORITY = 'UPDATE_NODE_PRIORITY',
+  MOVE_NODE = 'MOVE_NODE',
 }
 
 // 数据变更信息

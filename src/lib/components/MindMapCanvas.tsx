@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useMindMap } from '../hooks/useMindMap';
-import { MindMapNode, Point, Viewport, MindMapState, MindMapPriorityConfig, LineType, EdgeConfig } from '../types'; // Changed Node to MindMapNode
+import { MindMapNode, Point, Viewport, MindMapState, MindMapPriorityConfig, LineType, EdgeConfig, BUILTIN_NODE_TYPE_CONFIG } from '../types'; // Changed Node to MindMapNode
 import {
   drawNode, drawConnection, isPointInNode, screenToWorld, drawCollapseButton
 } from '../utils/canvasUtils';
@@ -17,6 +17,8 @@ import { fitViewCommand } from '../commands/fitViewCommand';
 import { centerViewCommand } from '../commands/centerViewCommand';
 import { expandAllCommand } from '../commands/expandAllCommand';
 import { collapseAllCommand } from '../commands/collapseAllCommand';
+import MessageBox, { MessageItem, MessageType } from './MessageBox';
+import message from './message';
 
 function PriorityLabel({ label, color, bg }: { label: string; color: string; bg?: string }) {
   return (
@@ -73,6 +75,10 @@ interface MindMapCanvasProps {
   priorityConfig?: MindMapPriorityConfig;
   lineType?: LineType;
   showArrow?: boolean;
+  /**
+   * 节点移动规则回调，用于自定义节点拖拽换父的权限控制
+   */
+  canMoveNode?: (dragNode: MindMapNode, targetParent: MindMapNode) => boolean;
 }
 
 // Helper function to find the node at a given point in the AST
@@ -106,7 +112,41 @@ function canEditPriority(node: any, priorityConfig: any, isReadOnly: boolean) {
   return true;
 }
 
-const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground, enableContextMenu = true, getContextMenuGroups, onDraggingChange, priorityConfig, lineType = 'polyline', showArrow = false }) => {
+function isBuiltinNodeType(nodeType?: string) {
+  return !!nodeType && Object.prototype.hasOwnProperty.call(BUILTIN_NODE_TYPE_CONFIG, nodeType);
+}
+
+// 计算两点距离
+function getDistance(p1: Point, p2: Point) {
+  return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+}
+
+// 绘制 TAPD 风格吸附线
+function drawTapdSnapLine(ctx: CanvasRenderingContext2D, targetNode: MindMapNode | null | undefined) {
+  if (!targetNode || !targetNode.position || typeof targetNode.width !== 'number' || typeof targetNode.height !== 'number') return;
+  const centerY = targetNode.position.y + targetNode.height / 2;
+  const startX = targetNode.position.x - 20;
+  const endX = targetNode.position.x + targetNode.width + 20;
+  ctx.save();
+  ctx.strokeStyle = '#059669';
+  ctx.lineWidth = 4;
+  ctx.shadowColor = '#05966955';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.moveTo(startX, centerY);
+  ctx.lineTo(endX, centerY);
+  ctx.stroke();
+  // 两端圆点
+  ctx.beginPath();
+  ctx.arc(startX, centerY, 6, 0, 2 * Math.PI);
+  ctx.arc(endX, centerY, 6, 0, 2 * Math.PI);
+  ctx.fillStyle = '#059669';
+  ctx.shadowBlur = 0;
+  ctx.fill();
+  ctx.restore();
+}
+
+const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getNodeStyle, canvasBackgroundColor, showDotBackground, enableContextMenu = true, getContextMenuGroups, onDraggingChange, priorityConfig, lineType = 'polyline', showArrow = false, canMoveNode }) => {
   const {
     state, setSelectedNode, setEditingNode, zoom, pan,
     updateNodeText, addNode: mindMapAddNode, deleteNode: mindMapDeleteNode,
@@ -132,10 +172,178 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
   const [dashOffset, setDashOffset] = useState(0);
   const hasAnimatedDashed = useRef(false);
 
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [dragOverNodeId, setDragOverNodeId] = useState<string | null>(null);
+  const [dragPreview, setDragPreview] = useState<{ node: MindMapNode; mousePos: Point } | null>(null);
+  const [dragCandidateId, setDragCandidateId] = useState<string | null>(null);
+  const [dragStartPos, setDragStartPos] = useState<Point | null>(null);
+  const DRAG_THRESHOLD = 5;
+
+  const [messages, setMessages] = useState<MessageItem[]>([]);
+  // 支持 showMessage('内容') 或 showMessage({content,type,duration})
+  const showMessage = (msg: string | { content: string; type?: MessageType; duration?: number }) => {
+    const id = Date.now() + Math.random();
+    if (typeof msg === 'string') {
+      setMessages(prev => [...prev, { id, content: msg, type: 'info', duration: 3000 }]);
+    } else {
+      setMessages(prev => [...prev, { id, ...msg }]);
+    }
+  };
+  const removeMessage = (id: number) => {
+    setMessages(prev => prev.filter(m => m.id !== id));
+  };
+
   const getMenuCommandState = (nodeId: string) => ({
     ...state,
     selectedNodeId: nodeId
   });
+
+  // 获取拖拽节点及其所有子节点的副本
+  const getDragNodeWithChildren = useCallback((nodeId: string): MindMapNode | null => {
+    const node = findNodeInAST(rootNode, nodeId);
+    if (!node) return null;
+    
+    // 深拷贝节点及其所有子节点
+    const cloneNode = (n: MindMapNode): MindMapNode => ({
+      ...n,
+      children: n.children.map(cloneNode)
+    });
+    
+    return cloneNode(node);
+  }, [rootNode]);
+
+  // 绘制拖拽预览节点
+  const drawDragPreview = useCallback((
+    ctx: CanvasRenderingContext2D,
+    dragNode: MindMapNode,
+    mousePos: Point,
+    viewport: Viewport
+  ) => {
+    // 计算拖拽节点的世界坐标偏移
+    const worldPos = screenToWorld(mousePos, viewport);
+    const offsetX = worldPos.x - dragNode.position.x;
+    const offsetY = worldPos.y - dragNode.position.y;
+    
+    // 递归绘制拖拽预览节点
+    const drawPreviewNode = (node: MindMapNode, parentOffset: Point) => {
+      const previewNode: MindMapNode = {
+        ...node,
+        position: {
+          x: node.position.x + parentOffset.x,
+          y: node.position.y + parentOffset.y
+        }
+      };
+      
+      // 绘制半透明的预览节点
+      const mergedStyle = {
+        ...(node.style || {}),
+        ...(getNodeStyle ? getNodeStyle(node, state) : {}),
+        opacity: 0.7,
+        border: '2px dashed #3b82f6'
+      };
+      
+      drawNode(
+        ctx,
+        previewNode,
+        false,
+        false,
+        false,
+        '',
+        mergedStyle,
+        mindMapHookInstance.typeConfig,
+        priorityConfig
+      );
+      
+      // 绘制子节点连线
+      if (!node.isCollapsed && node.children && node.children.length > 0) {
+        for (const childNode of node.children) {
+          const childPreviewNode: MindMapNode = {
+            ...childNode,
+            position: {
+              x: childNode.position.x + parentOffset.x,
+              y: childNode.position.y + parentOffset.y
+            }
+          };
+          
+          const parentAnchor: Point = {
+            x: previewNode.position.x + previewNode.width,
+            y: previewNode.position.y + previewNode.height / 2,
+          };
+          const childAnchor: Point = {
+            x: childPreviewNode.position.x,
+            y: childPreviewNode.position.y + childPreviewNode.height / 2,
+          };
+          
+          // 绘制虚线连线
+          ctx.save();
+          ctx.setLineDash([5, 5]);
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(parentAnchor.x, parentAnchor.y);
+          ctx.lineTo(childAnchor.x, childAnchor.y);
+          ctx.stroke();
+          ctx.restore();
+          
+          drawPreviewNode(childNode, parentOffset);
+        }
+      }
+    };
+    
+    drawPreviewNode(dragNode, { x: offsetX, y: offsetY });
+  }, [getNodeStyle, state, mindMapHookInstance.typeConfig, priorityConfig]);
+
+  // 绘制拖拽辅助线
+  const drawDragGuide = useCallback((
+    ctx: CanvasRenderingContext2D,
+    dragNode: MindMapNode,
+    targetNode: MindMapNode,
+    mousePos: Point,
+    viewport: Viewport,
+    isAbsorbed: boolean
+  ) => {
+    const worldPos = screenToWorld(mousePos, viewport);
+    // 拖拽节点的当前位置
+    const dragCenter: Point = {
+      x: worldPos.x,
+      y: worldPos.y
+    };
+    // 目标节点中心
+    const targetCenter: Point = {
+      x: targetNode.position.x + targetNode.width / 2,
+      y: targetNode.position.y + targetNode.height / 2,
+    };
+    // 目标节点的右侧中点
+    const targetAnchor: Point = {
+      x: targetNode.position.x + targetNode.width,
+      y: targetNode.position.y + targetNode.height / 2,
+    };
+    ctx.save();
+    // 只要吸附判定成立，始终绘制辅助线和对齐线
+    if (isAbsorbed) {
+      // 辅助连接线
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = '#16a34a';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(dragCenter.x, dragCenter.y);
+      ctx.lineTo(targetAnchor.x, targetAnchor.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // 横穿目标节点的绿色虚线对齐线
+      ctx.save();
+      ctx.strokeStyle = '#059669';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.moveTo(targetNode.position.x - 20, targetCenter.y);
+      ctx.lineTo(targetNode.position.x + targetNode.width + 20, targetCenter.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+    ctx.restore();
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -299,6 +507,10 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       node: MindMapNode | null
     ) {
       if (!node) return;
+      // 拖拽时，遇到拖拽节点本身，直接跳过（不渲染该节点及其子树），但父节点和兄弟节点正常
+      if (draggingNodeId && node.id === draggingNodeId) {
+        return;
+      }
       const isEditing = node.id === editingId;
       // 1. 只跳过 drawNode，其他都要执行
       if (!isEditing) {
@@ -321,6 +533,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       // 2. 父节点到子节点的连线、折叠按钮始终要画
       if (!node.isCollapsed && node.children && node.children.length > 0) {
         for (const childNode of node.children) {
+          if (draggingNodeId && childNode.id === draggingNodeId) continue; // 跳过被拖拽节点
           if (childNode) {
             // 连线起点：如果当前节点是编辑节点，用 editingNodeDynamicWidth，否则用 node.width
             const nodeRightX = isEditing && editingNodeDynamicWidth != null
@@ -342,6 +555,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       // 3. 递归渲染子节点
       if (!node.isCollapsed && node.children && node.children.length > 0) {
         for (const childNode of node.children) {
+          if (draggingNodeId && childNode.id === draggingNodeId) continue; // 跳过被拖拽节点
           if (childNode) {
             drawBranchRecursiveNoEdit(ctx, childNode);
           }
@@ -351,12 +565,40 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     if (rootNode) {
       drawBranchRecursiveNoEdit(ctx, rootNode);
     }
+    
+    // 绘制拖拽预览
+    if (dragPreview && draggingNodeId) {
+      drawDragPreview(ctx, dragPreview.node, dragPreview.mousePos, viewport);
+      // 如果有悬停目标，绘制辅助线
+      if (dragOverNodeId) {
+        const targetNode = findNodeInAST(rootNode, dragOverNodeId);
+        if (targetNode && targetNode.position && typeof targetNode.width === 'number' && typeof targetNode.height === 'number') {
+          // 智能吸附判定：拖拽节点中心点落在目标节点包围盒外扩50px区域内
+          const worldPos = screenToWorld(dragPreview.mousePos, viewport);
+          const dragCenter = { x: worldPos.x, y: worldPos.y };
+          const targetCenter = {
+            x: (targetNode.position?.x || 0) + (targetNode.width || 0) / 2,
+            y: (targetNode.position?.y || 0) + (targetNode.height || 0) / 2,
+          };
+          const isAbsorbed = getDistance(dragCenter, targetCenter) < 100;
+          drawDragGuide(ctx, dragPreview.node, targetNode, dragPreview.mousePos, viewport, isAbsorbed);
+        }
+      }
+    }
+    
     ctx.restore();
-  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, currentMatchNodeId, isReadOnly, getNodeStyle, canvasBackgroundColor, showDotBackground, state, mindMapHookInstance.typeConfig, editingNodeDynamicWidth, priorityConfig]);
+  }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, currentMatchNodeId, isReadOnly, getNodeStyle, canvasBackgroundColor, showDotBackground, state, mindMapHookInstance.typeConfig, editingNodeDynamicWidth, priorityConfig, draggingNodeId, dragPreview, dragOverNodeId, drawDragPreview, drawDragGuide]);
 
-  // useEffect(() => {
-  //   console.log('MindMapCanvas render viewport', viewport);
-  // }, [rootNode, selectedNodeId, editingNodeId, viewport, currentCanvasSize, currentSearchTerm, highlightedNodeIds, currentMatchNodeId, isReadOnly, getNodeStyle, canvasBackgroundColor, showDotBackground, state, mindMapHookInstance.typeConfig]);
+  // 判断节点是否为拖拽节点的子孙节点
+  function isDescendantOfDraggingNode(node: MindMapNode, draggingId: string): boolean {
+    if (!node || !node.children) return false;
+    for (const child of node.children) {
+      if (child.id === draggingId || isDescendantOfDraggingNode(child, draggingId)) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   const getMousePositionOnCanvas = (e: React.MouseEvent): Point => {
     const canvas = canvasRef.current;
@@ -369,7 +611,12 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
+    console.log('🖱️ 画布鼠标按下:', { button: e.button, draggingNodeId, isReadOnly });
+    if (e.button !== 0 && e.button !== 2) return;
+    if (draggingNodeId) {
+      console.log('⚠️ 正在拖拽节点，忽略画布拖拽');
+      return;
+    }
     const mousePos = getMousePositionOnCanvas(e);
     lastMousePositionRef.current = mousePos;
     const worldPos = screenToWorld(mousePos, viewport);
@@ -398,7 +645,23 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       buttonClickedProcessed = true;
     }
     if (buttonClickedProcessed) return;
+    
     const clickedNode = findNodeInASTFromPoint(rootNode, worldPos, viewport);
+    console.log('🎯 画布点击的节点:', { clickedNodeId: clickedNode?.id, clickedNodeText: clickedNode?.text });
+    
+    // 拖拽判定：只记录候选节点和起点，不立即脱离
+    if (clickedNode && !isReadOnly) {
+      setDragCandidateId(clickedNode.id);
+      setDragStartPos(mousePos);
+      setDragOverNodeId(null);
+      // 设置选中状态
+      if (editingNodeId !== clickedNode.id) {
+        setEditingNode(null);
+      }
+      setSelectedNode(clickedNode.id);
+      return; // 不启动画布拖拽
+    }
+
     if (clickedNode) {
       if (editingNodeId !== clickedNode.id) {
         setEditingNode(null);
@@ -410,26 +673,119 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       }
       setSelectedNode(null);
     }
+    // 启动画布拖拽（包括只读模式）
     setIsDraggingNode(true); // 仅用于 UI
     isDraggingNodeRef.current = true;
     if (typeof onDraggingChange === 'function') onDraggingChange(true);
+    console.log('🖱️ 画布拖拽开始');
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    // 拖拽判定：如果有 dragCandidateId，判断是否超过阈值，超过则进入拖拽模式
+    if (dragCandidateId && dragStartPos) {
+      const mousePos = getMousePositionOnCanvas(e);
+      const dx = mousePos.x - dragStartPos.x;
+      const dy = mousePos.y - dragStartPos.y;
+      if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+        setDraggingNodeId(dragCandidateId);
+        setDragCandidateId(null);
+        setDragStartPos(null);
+        // 创建拖拽预览
+        const dragNode = getDragNodeWithChildren(dragCandidateId);
+        if (dragNode) {
+          setDragPreview({ node: dragNode, mousePos });
+        }
+        return;
+      }
+    }
+    // 如果正在拖拽节点，检测悬停目标
+    if (draggingNodeId) {
+      const mousePos = getMousePositionOnCanvas(e);
+      if (dragPreview) {
+        setDragPreview({ ...dragPreview, mousePos });
+      }
+      const worldPos = screenToWorld(mousePos, viewport);
+      // 获取父节点 id
+      let parentId: string | null = null;
+      const parentInfo = findNodeAndParentInAST(rootNode, draggingNodeId);
+      if (parentInfo && parentInfo.parent) {
+        parentId = parentInfo.parent.id;
+      }
+      // 新吸附判定：遍历所有节点，排除自身和父节点
+      function findClosestNodeInRange(node: MindMapNode | null, excludeIds: string[], point: Point, maxDist: number): MindMapNode | null {
+        let closest: MindMapNode | null = null;
+        let minDist = Infinity;
+        function dfs(n: MindMapNode | null) {
+          if (!n) return;
+          if (excludeIds.includes(n.id)) return;
+          const center = {
+            x: n.position.x + n.width / 2,
+            y: n.position.y + n.height / 2,
+          };
+          const dist = getDistance(point, center);
+          if (dist < maxDist && dist < minDist) {
+            closest = n;
+            minDist = dist;
+          }
+          if (n.children && n.children.length > 0) {
+            n.children.forEach(child => dfs(child));
+          }
+        }
+        dfs(node);
+        return closest;
+      }
+      const excludeIds = [draggingNodeId];
+      if (parentId) excludeIds.push(parentId);
+      const hoveredNode = findClosestNodeInRange(rootNode, excludeIds, worldPos, 100);
+      if (hoveredNode) {
+        if (dragOverNodeId !== hoveredNode.id) {
+          setDragOverNodeId(hoveredNode.id);
+        }
+      } else if (dragOverNodeId) {
+        setDragOverNodeId(null);
+      }
+      return;
+    }
+    
     if (!lastMousePositionRef.current) return;
     const mousePos = getMousePositionOnCanvas(e);
     if (isDraggingNodeRef.current) {
       const dx = (mousePos.x - lastMousePositionRef.current.x) / viewport.zoom;
       const dy = (mousePos.y - lastMousePositionRef.current.y) / viewport.zoom;
       pan(dx, dy);
+      console.log('🖱️ 画布拖拽移动:', { dx, dy });
     }
     lastMousePositionRef.current = mousePos;
   };
 
   const handleMouseUp = () => {
+    console.log('🖱️ 画布鼠标松开:', { draggingNodeId, isDraggingNodeRef: isDraggingNodeRef.current });
+    // 拖拽判定：如果只是点击未移动，重置 dragCandidateId/dragStartPos
+    if (dragCandidateId) {
+      setDragCandidateId(null);
+      setDragStartPos(null);
+      return;
+    }
+    // 如果正在拖拽节点，执行节点拖拽换父
+    if (draggingNodeId) {
+      console.log('🔴 节点拖拽结束:', { draggingNodeId, dragOverNodeId });
+      if (dragOverNodeId && draggingNodeId !== dragOverNodeId) {
+        console.log('🚀 执行节点拖拽换父:', { dragNodeId: draggingNodeId, targetParentId: dragOverNodeId });
+        handleNodeDrop(draggingNodeId, dragOverNodeId);
+      } else {
+        console.log('❌ 拖拽到同一节点或无目标，取消操作');
+      }
+      setDraggingNodeId(null);
+      setDragOverNodeId(null);
+      setDragPreview(null);
+      return;
+    }
+    
+    // 结束画布拖拽
     setIsDraggingNode(false);
     isDraggingNodeRef.current = false;
     if (typeof onDraggingChange === 'function') onDraggingChange(false);
+    console.log('🖱️ 画布拖拽结束');
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
@@ -605,7 +961,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
         if (selectedNodeId) {
           if (currentSelectedNode && currentSelectedNode.id === rootNode?.id && (!rootNode.children || rootNode.children.length === 0)) {
             // 删除最后一个节点时，弹出提示，后面改用组件
-            alert("Cannot delete the last node.");
+            showMessage({ content: "不能删除最后一个节点。", type: 'warning' });
           } else {
             mindMapDeleteNode(selectedNodeId);
           }
@@ -679,6 +1035,69 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
 
   const nodeToEdit = editingNodeId ? findNodeInAST(rootNode, editingNodeId) : null;
 
+  // 拖拽换父核心逻辑
+  function handleNodeDrop(dragNodeId: string, targetParentId: string) {
+    console.log('🎯 开始处理节点拖拽换父:', { dragNodeId, targetParentId });
+    if (dragNodeId === targetParentId) {
+      console.log('❌ 拖拽源和目标相同，忽略');
+      return;
+    }
+    const dragNode = findNodeInAST(rootNode, dragNodeId);
+    const targetParent = findNodeInAST(rootNode, targetParentId);
+    if (!dragNode || !targetParent) {
+      console.log('❌ 找不到拖拽节点或目标父节点:', { dragNode: !!dragNode, targetParent: !!targetParent });
+      return;
+    }
+    console.log('📋 拖拽节点信息:', { dragNodeText: dragNode.text, dragNodeType: dragNode.nodeType });
+    console.log('📋 目标父节点信息:', { targetParentText: targetParent.text, targetParentType: targetParent.nodeType });
+    
+    // 业务规则1：前置条件节点不能拖拽换父
+    if (dragNode.nodeType === 'preconditionNode') {
+      showMessage({ content: '前置条件节点不能通过拖拽换父，只能在用例节点下新建！', type: 'warning' });
+      return;
+    }
+    // 业务规则2：用例节点下只能有一个前置条件节点，且始终在第一个
+    if (targetParent.nodeType === 'caseNode' && dragNode.nodeType === 'preconditionNode') {
+      const hasPre = targetParent.children.some(child => child.nodeType === 'preconditionNode');
+      if (hasPre) {
+        showMessage({ content: '用例节点下只能有一个前置条件节点！', type: 'error' });
+        return;
+      }
+      // 只能新建，不能拖拽换父
+      showMessage({ content: '前置条件节点只能在用例节点下新建，不能通过拖拽换父！', type: 'warning' });
+      return;
+    }
+    // 外部API优先
+    if (typeof canMoveNode === 'function' && !canMoveNode(dragNode, targetParent)) {
+      console.log('❌ 外部API阻止移动');
+      showMessage({ content: '不允许移动到该节点下', type: 'error' });
+      return;
+    }
+    // 普通节点可自由移动
+    if (!isBuiltinNodeType(dragNode.nodeType)) {
+      console.log('✅ 普通节点，允许自由移动');
+      mindMapHookInstance.moveNode?.(String(dragNodeId), String(targetParentId));
+      return;
+    }
+    // 内置类型节点，复用新增节点规则
+    const typeConf = BUILTIN_NODE_TYPE_CONFIG[targetParent.nodeType as keyof typeof BUILTIN_NODE_TYPE_CONFIG];
+    if (!typeConf) {
+      console.log('❌ 目标节点类型不允许挂载子节点');
+      showMessage({ content: '目标节点类型不允许挂载该类型子节点', type: 'error' });
+      return;
+    }
+    const canAddTypes = (typeConf.canAddChildren || []);
+    if (!canAddTypes.includes(dragNode.nodeType)) {
+      console.log('❌ 目标节点类型不允许挂载该类型子节点:', { targetType: targetParent.nodeType, dragType: dragNode.nodeType, allowedTypes: canAddTypes });
+      message.error({ content: '该类型节点不能移动到目标节点下1111111'});
+      return;
+    }
+    console.log('✅ 内置类型节点，移动规则检查通过');
+    // 可加 maxChildrenOfType 等约束
+    mindMapHookInstance.moveNode?.(String(dragNodeId), String(targetParentId));
+    console.log('节点拖拽换父执行完成');
+  }
+
   return (
     <div className="flex-grow w-full h-full relative overflow-hidden bg-gray-200" style={{ cursor: isPanning ? 'grabbing' : (isDraggingNode && !isReadOnly ? 'move' : 'default') }}>
       <canvas
@@ -711,6 +1130,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
           priorityConfig={priorityConfig}
         />
       )}
+      <MessageBox messages={messages} onClose={removeMessage} />
     </div>
   );
 };

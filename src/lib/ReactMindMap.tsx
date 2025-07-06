@@ -94,6 +94,13 @@ export interface ReactMindMapProps {
   priorityConfig?: MindMapPriorityConfig;
   lineType?: LineType;
   showArrow?: boolean;
+  /**
+   * 节点移动规则回调，用于自定义节点拖拽换父的权限控制
+   * @param dragNode 被拖拽的节点
+   * @param targetParent 目标父节点
+   * @returns 是否允许移动
+   */
+  canMoveNode?: (dragNode: MindMapNode, targetParent: MindMapNode) => boolean;
 }
 
 export default function ReactMindMap({
@@ -119,6 +126,7 @@ export default function ReactMindMap({
   priorityConfig = { enabled: false },
   lineType = 'polyline',
   showArrow = false,
+  canMoveNode,
 }: ReactMindMapProps) {
   const appContainerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -411,6 +419,7 @@ export default function ReactMindMap({
           priorityConfig={priorityConfig}
           lineType={lineType}
           showArrow={showArrow}
+          canMoveNode={canMoveNode}
         />
         {showMinimap && state.rootNode && canvasSize && (
           <Minimap

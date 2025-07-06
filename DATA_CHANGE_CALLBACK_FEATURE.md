@@ -514,3 +514,128 @@ useEffect(() => {
 - 相关修复已在 handleDataChangeDetailed 回调中验证，所有节点结构和优先级变更均能统一监控。
 
 --- 
+
+## 全局消息提示（message）优化与用法说明
+
+### 功能优化与问题修复
+- 新增全局 message 单例对象，支持在任意组件/业务代码中通过 message.success/info/error/warning/custom 方式弹出全局消息，无需手动引入 MessageBox 组件。
+- 支持多条消息队列，自动堆叠展示。
+- 支持多种类型（info、success、error、warning、custom），每种类型有独立 icon 和主色。
+- 消息背景色统一为白色，文字黑色，边框和 icon 匹配类型色，风格清爽。
+- 支持每条消息自定义显示时长（duration，单位 ms，默认 3000），0 表示不自动消失。
+- 只需在 App 入口挂载一次 <GlobalMessageBox />，其它地方无需关心状态和组件挂载。
+- 彻底解决了 alert、手动状态管理等繁琐问题，极大提升开发效率和用户体验。
+
+### 使用方法
+
+1. **在 App 入口已自动挂载 <GlobalMessageBox />，无需重复挂载。**
+
+2. **在任意组件直接导入 message 并调用：**
+
+```js
+import message from './lib/components/message';
+
+// 简单用法
+message.success('操作成功！');
+message.error('出错了');
+message.info('普通提示');
+message.warning('警告信息');
+
+// 支持自定义时长（单位 ms）
+message.success({ content: '5秒后消失', duration: 5000 });
+
+// 支持自定义类型
+message.custom({ content: '自定义类型', duration: 4000 });
+```
+
+3. **API 说明**
+- message.success/info/error/warning/custom(内容 | { content, duration })
+- content：消息内容（必填）
+- duration：显示时长，单位 ms，默认 3000，0 表示不自动消失
+
+4. **效果说明**
+- 多条消息自动堆叠，3 秒后自动消失（可自定义时长）
+- icon、边框、主色随类型变化，背景始终为白色，文字黑色
+
+---
+
+如需扩展更多类型、支持关闭按钮、动画等，可在 message 及 MessageBox 组件基础上灵活扩展。
+
+--- 
+
+## 节点拖拽换父功能与优化说明
+
+### 主要功能与实现
+- 支持节点通过拖拽方式更换父节点，所有变更纳入全局数据流，支持撤销/重做。
+- 拖拽逻辑采用"长按并拖拽超过阈值才脱离父节点"，有效防止误操作。
+- 拖拽时，原节点及其所有子树（包括连线）会从画布上消失，仅显示拖拽预览和辅助线，父节点及兄弟节点正常显示。
+- 拖拽预览为半透明虚线边框，辅助线为绿色虚线，终点精确指向目标节点右侧中点，符合实际连线方向。
+- 拖拽判定支持左键和右键，松开鼠标时根据拖拽状态决定是否换父。
+
+### 业务规则与约束
+- 前置条件节点（preconditionNode）不能通过拖拽换父，只能在用例节点（caseNode）下新建。
+- 用例节点下只能有一个前置条件节点，且始终在 children[0] 位置。
+- 拖拽时如违反上述规则，自动通过全局 message 提示，操作被禁止。
+- 其它内置类型节点拖拽时，严格校验目标节点类型、可挂载子类型、最大子节点数等业务约束。
+
+### 视觉与交互优化
+- 拖拽时辅助线、预览节点、目标节点高亮等视觉效果多次优化，保证用户能清楚看到拖拽目标和结构变化。
+- 拖拽过程中，父节点、祖先节点、兄弟节点及其连线始终正常显示，只有被拖拽节点及其子树消失。
+- 控制台添加详细调试日志，便于定位和排查拖拽相关问题。
+
+### 只读/编辑模式下的行为一致性
+- 只读模式下完全禁用节点拖拽，保持原有画布拖拽交互，鼠标光标和拖拽状态管理已修复。
+- 编辑模式下，节点拖拽与画布拖拽互不干扰，体验流畅。
+
+### 数据流与回调
+- 所有拖拽换父操作均通过 onDataChangeDetailed 回调，外部可实时获取最新数据和链路信息。
+- 变更信息包含 currentNode、parentNode、idChain、parentIdChain、idChainNodes、parentIdChainNodes，便于业务扩展和链路分析。
+
+### 扩展性与最佳实践
+- 拖拽换父逻辑高度解耦，支持自定义 canMoveNode 回调灵活扩展业务规则。
+- 推荐所有外部只读/保存/导出场景均通过 onDataChangeDetailed 获取最新数据，避免直接操作内部状态。
+
+### 拖拽换父 API 使用方法
+
+1. **自定义拖拽规则**
+
+可通过 ReactMindMap/MindMapCanvas 组件的 canMoveNode 属性自定义节点拖拽换父的业务规则：
+
+```tsx
+<ReactMindMap
+  ...
+  canMoveNode={(dragNode, targetParent) => {
+    // 只允许 moduleNode 拖到 rootNode 下
+    if (dragNode.nodeType === 'moduleNode' && targetParent.nodeType === 'rootNode') return true;
+    // 禁止所有 preconditionNode 拖拽
+    if (dragNode.nodeType === 'preconditionNode') return false;
+    // 其它规则...
+    return true;
+  }}
+/>
+```
+
+2. **监听拖拽变更**
+
+所有拖拽换父操作均会触发 onDataChangeDetailed 回调，回调参数包含详细变更信息：
+
+```tsx
+<ReactMindMap
+  ...
+  onDataChangeDetailed={info => {
+    // info.currentNode 拖拽后的节点对象
+    // info.parentNode 新父节点对象
+    // info.idChain/idChainNodes 节点链路
+    // info.parentIdChain/parentIdChainNodes 父节点链路
+    // info.operationType === 'MOVE_NODE'
+    // 可用于自动保存、埋点、链路分析等
+    console.log('拖拽换父变更', info);
+  }}
+/>
+```
+
+3. **典型用法**
+- 拖拽时自动校验业务规则，违规时自动全局 message 提示，无需手动处理。
+- 拖拽完成后可通过 onDataChangeDetailed 获取最新数据和链路，推荐用于自动保存、导出、埋点等场景。
+
+--- 

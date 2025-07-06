@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ToolbarButtonConfig } from '../types';
-import { FaChevronLeft, FaTimes } from 'react-icons/fa';
+import { FaChevronLeft, FaTimes, FaDownload } from 'react-icons/fa';
 
 const HANDLE_WIDTH = 32; // 拉手宽度
 const HANDLE_HEIGHT = 64; // 拉手高度

@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { ReactMindMap, type ReactMindMapProps, type MindMapNode, type DataChangeInfo, OperationType } from './lib';
-import { FaSave } from 'react-icons/fa';
+import { FaSave, FaDownload } from 'react-icons/fa';
 import { Panel } from './lib/ReactMindMap';
 import { pureNodeData } from './lib/utils/nodeUtils';
+import GlobalMessageBox from './lib/components/GlobalMessageBox';
+import ExportController, { ExportControllerRef } from './lib/components/ExportController';
 
 // 示例1：无类型模式（所有节点为普通节点）
 const rawInitialDataNone = {
@@ -93,6 +95,9 @@ const typeConfigCustom = {
 };
 
 function App() {
+
+  const exportRef = useRef<ExportControllerRef>(null);
+  // const mindMapRef = useRef<any>(null); // 移除无用 ref
   // 1. 无类型模式用法
   // const [data] = useState(rawInitialDataNone);
   // const typeConfig = typeConfigNone;
@@ -108,14 +113,14 @@ function App() {
   const [readOnly, setReadOnly] = useState(false);
   const initialDataRef = useRef(data);
 
-  const handleDataChangeDetailed = (changeInfo: DataChangeInfo) => {
-    console.log('changeInfo', changeInfo);
-    console.log('最新数据', changeInfo.currentData);
-
-    // pureNodeData 纯净数据
-    console.log('changeInfo.pureNodeData', pureNodeData(changeInfo.currentData as MindMapNode));
-   
+  // 直接通过全局状态或其它方式获取最新数据
+  const [latestData, setLatestData] = useState<any>(null);
+  // 监听数据变更，更新 latestData
+  const handleDataChangeDetailed = (info: any) => {
+    setLatestData(info.data || info.currentData || info.currentNode || null);
+    // ...如有其它 onDataChangeDetailed 逻辑可补充
   };
+  const getData = () => latestData;
 
   const mindMapProps: ReactMindMapProps = {
     initialData: initialDataRef.current as any,
@@ -145,16 +150,61 @@ function App() {
     },
     lineType: 'polyline',    // 'polyline' | 'rounded' | 'bezier' | 'dashed' | 'animated-dashed' 贝塞尔曲线不要使用箭头
     showArrow: true,       // 是否显示箭头
-    
+    // 启用拖拽换父功能
+    canMoveNode: (dragNode: MindMapNode, targetParent: MindMapNode) => {
+      // 示例1：允许所有移动
+      // return true;
+      
+      // 示例2：自定义规则（如不允许拖拽根节点）
+      if (dragNode.id === '1') return false;
+      return true;
+      
+      // 示例3：根据节点类型自定义规则
+      // if (dragNode.nodeType === 'rootNode') return false;
+      // if (targetParent.nodeType === 'resultNode') return false;
+      // return true;
+    },
+  };
+
+   // 获取导图数据、canvas、svg 的方法
+   // const getData = () => mindMapRef.current?.getData?.() || mindMapRef.current?.state?.rootNode;
+   const getCanvas = () => document.querySelector('canvas');
+   const getSvg = () => document.querySelector('svg');
+
+
+  // 顶部工具条自定义导出按钮
+  const exportButton = {
+    id: 'export',
+    label: '导出',
+    title: '导出',
+    icon: FaDownload,
+    action: () => {
+      console.log('show export modal');
+      console.log('exportRef.current:', exportRef.current);
+      exportRef.current?.open();
+    },
+    disabled: false,
   };
 
   return (
-    <div style={{ width: '100vw', height: '100vh' }}>
+    <div className="w-full h-full flex flex-col">
       <Panel position="top-right">
         <div>Hello</div>
       </Panel>
-      <ReactMindMap {...mindMapProps} />
-
+      <ReactMindMap
+        // ref={mindMapRef} // 移除
+        {...mindMapProps}
+        onDataChangeDetailed={handleDataChangeDetailed}
+        topToolbarCustomButtons={[exportButton]}
+      />
+      <GlobalMessageBox />
+      <ExportController
+        ref={exportRef}
+        visibleTypes={['image', 'svg', 'pdf', 'markdown', 'xmind', 'txt', 'json', 'pure']}
+        getData={getData}
+        getCanvas={getCanvas}
+        getSvg={getSvg}
+      />
     </div>
   );
 }
