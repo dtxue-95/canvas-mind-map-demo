@@ -10,6 +10,7 @@ export const getDefaultTopToolbarConfig = () => [
   'add-sibling-node',
   'add-child-node',
   'delete-node',
+  // 'review'
 ];
 
 export const getDefaultBottomToolbarConfig = () => [

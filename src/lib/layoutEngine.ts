@@ -7,7 +7,7 @@ import { deepCopyAST } from './utils/nodeUtils'; // 用于 applyLayout 操作副
  * 根据节点文本获取动态尺寸
  */
 function _getNodeDimensions(node: MindMapNode, typeConfig?: any, priorityConfig?: any): { width: number; height: number } {
-  console.log('[layoutEngine:_getNodeDimensions] priorityConfig:', priorityConfig);
+  // console.log('[layoutEngine:_getNodeDimensions] priorityConfig:', priorityConfig);
   return calculateNodeDimensions(node.text, node.nodeType, typeConfig, node.priority, priorityConfig);
 }
 
@@ -20,7 +20,7 @@ function getBranchActualHeight(
   typeConfig?: any,
   priorityConfig?: any
 ): number {
-  console.log('[layoutEngine:getBranchActualHeight] priorityConfig:', priorityConfig);
+  // console.log('[layoutEngine:getBranchActualHeight] priorityConfig:', priorityConfig);
   // 根据节点当前文本获取尺寸
   const { height: nodeHeight } = _getNodeDimensions(node, typeConfig, priorityConfig);
 
@@ -54,7 +54,7 @@ function _layoutSubtreeRecursive(
   typeConfig?: any,
   priorityConfig?: any
 ): number { // 返回布局分支的实际高度
-  console.log('[layoutEngine:_layoutSubtreeRecursive] priorityConfig:', priorityConfig);
+  // console.log('[layoutEngine:_layoutSubtreeRecursive] priorityConfig:', priorityConfig);
   // 根据节点文本更新 nodeToLayout 实例中的尺寸
   const { width: calculatedWidth, height: calculatedHeight } = _getNodeDimensions(nodeToLayout, typeConfig, priorityConfig);
   nodeToLayout.width = calculatedWidth;
@@ -114,7 +114,7 @@ export function applyLayout(
   typeConfig?: any,
   priorityConfig?: any
 ): MindMapNode | null {
-  console.log('[layoutEngine:applyLayout] priorityConfig:', priorityConfig);
+  // console.log('[layoutEngine:applyLayout] priorityConfig:', priorityConfig);
   if (!originalRootNode) {
     return null;
   }

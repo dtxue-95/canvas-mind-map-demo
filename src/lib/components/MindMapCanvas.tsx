@@ -611,10 +611,10 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    console.log('🖱️ 画布鼠标按下:', { button: e.button, draggingNodeId, isReadOnly });
+    // console.log('🖱️ 画布鼠标按下:', { button: e.button, draggingNodeId, isReadOnly });
     if (e.button !== 0 && e.button !== 2) return;
     if (draggingNodeId) {
-      console.log('⚠️ 正在拖拽节点，忽略画布拖拽');
+      // console.log('⚠️ 正在拖拽节点，忽略画布拖拽');
       return;
     }
     const mousePos = getMousePositionOnCanvas(e);
@@ -647,7 +647,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     if (buttonClickedProcessed) return;
     
     const clickedNode = findNodeInASTFromPoint(rootNode, worldPos, viewport);
-    console.log('🎯 画布点击的节点:', { clickedNodeId: clickedNode?.id, clickedNodeText: clickedNode?.text });
+    // console.log('🎯 画布点击的节点:', { clickedNodeId: clickedNode?.id, clickedNodeText: clickedNode?.text });
     
     // 拖拽判定：只记录候选节点和起点，不立即脱离
     if (clickedNode && !isReadOnly) {
@@ -677,7 +677,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     setIsDraggingNode(true); // 仅用于 UI
     isDraggingNodeRef.current = true;
     if (typeof onDraggingChange === 'function') onDraggingChange(true);
-    console.log('🖱️ 画布拖拽开始');
+    // console.log('🖱️ 画布拖拽开始');
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -753,13 +753,13 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
       const dx = (mousePos.x - lastMousePositionRef.current.x) / viewport.zoom;
       const dy = (mousePos.y - lastMousePositionRef.current.y) / viewport.zoom;
       pan(dx, dy);
-      console.log('🖱️ 画布拖拽移动:', { dx, dy });
+      // console.log('🖱️ 画布拖拽移动:', { dx, dy });
     }
     lastMousePositionRef.current = mousePos;
   };
 
   const handleMouseUp = () => {
-    console.log('🖱️ 画布鼠标松开:', { draggingNodeId, isDraggingNodeRef: isDraggingNodeRef.current });
+    // console.log('🖱️ 画布鼠标松开:', { draggingNodeId, isDraggingNodeRef: isDraggingNodeRef.current });
     // 拖拽判定：如果只是点击未移动，重置 dragCandidateId/dragStartPos
     if (dragCandidateId) {
       setDragCandidateId(null);
@@ -768,12 +768,12 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     }
     // 如果正在拖拽节点，执行节点拖拽换父
     if (draggingNodeId) {
-      console.log('🔴 节点拖拽结束:', { draggingNodeId, dragOverNodeId });
+      // console.log('🔴 节点拖拽结束:', { draggingNodeId, dragOverNodeId });
       if (dragOverNodeId && draggingNodeId !== dragOverNodeId) {
-        console.log('🚀 执行节点拖拽换父:', { dragNodeId: draggingNodeId, targetParentId: dragOverNodeId });
+        // console.log('🚀 执行节点拖拽换父:', { dragNodeId: draggingNodeId, targetParentId: dragOverNodeId });
         handleNodeDrop(draggingNodeId, dragOverNodeId);
       } else {
-        console.log('❌ 拖拽到同一节点或无目标，取消操作');
+        // console.log('❌ 拖拽到同一节点或无目标，取消操作');
       }
       setDraggingNodeId(null);
       setDragOverNodeId(null);
@@ -785,7 +785,7 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     setIsDraggingNode(false);
     isDraggingNodeRef.current = false;
     if (typeof onDraggingChange === 'function') onDraggingChange(false);
-    console.log('🖱️ 画布拖拽结束');
+    // console.log('🖱️ 画布拖拽结束');
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
@@ -1037,19 +1037,19 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
 
   // 拖拽换父核心逻辑
   function handleNodeDrop(dragNodeId: string, targetParentId: string) {
-    console.log('🎯 开始处理节点拖拽换父:', { dragNodeId, targetParentId });
+    // console.log('🎯 开始处理节点拖拽换父:', { dragNodeId, targetParentId });
     if (dragNodeId === targetParentId) {
-      console.log('❌ 拖拽源和目标相同，忽略');
+      // console.log('❌ 拖拽源和目标相同，忽略');
       return;
     }
     const dragNode = findNodeInAST(rootNode, dragNodeId);
     const targetParent = findNodeInAST(rootNode, targetParentId);
     if (!dragNode || !targetParent) {
-      console.log('❌ 找不到拖拽节点或目标父节点:', { dragNode: !!dragNode, targetParent: !!targetParent });
+      // console.log('❌ 找不到拖拽节点或目标父节点:', { dragNode: !!dragNode, targetParent: !!targetParent });
       return;
     }
-    console.log('📋 拖拽节点信息:', { dragNodeText: dragNode.text, dragNodeType: dragNode.nodeType });
-    console.log('📋 目标父节点信息:', { targetParentText: targetParent.text, targetParentType: targetParent.nodeType });
+    // console.log('📋 拖拽节点信息:', { dragNodeText: dragNode.text, dragNodeType: dragNode.nodeType });
+    // console.log('📋 目标父节点信息:', { targetParentText: targetParent.text, targetParentType: targetParent.nodeType });
     
     // 业务规则1：前置条件节点不能拖拽换父
     if (dragNode.nodeType === 'preconditionNode') {
@@ -1069,33 +1069,33 @@ const MindMapCanvas: React.FC<MindMapCanvasProps> = ({ mindMapHookInstance, getN
     }
     // 外部API优先
     if (typeof canMoveNode === 'function' && !canMoveNode(dragNode, targetParent)) {
-      console.log('❌ 外部API阻止移动');
+      // console.log('❌ 外部API阻止移动');
       showMessage({ content: '不允许移动到该节点下', type: 'error' });
       return;
     }
     // 普通节点可自由移动
     if (!isBuiltinNodeType(dragNode.nodeType)) {
-      console.log('✅ 普通节点，允许自由移动');
+      // console.log('✅ 普通节点，允许自由移动');
       mindMapHookInstance.moveNode?.(String(dragNodeId), String(targetParentId));
       return;
     }
     // 内置类型节点，复用新增节点规则
     const typeConf = BUILTIN_NODE_TYPE_CONFIG[targetParent.nodeType as keyof typeof BUILTIN_NODE_TYPE_CONFIG];
     if (!typeConf) {
-      console.log('❌ 目标节点类型不允许挂载子节点');
+      // console.log('❌ 目标节点类型不允许挂载子节点');
       showMessage({ content: '目标节点类型不允许挂载该类型子节点', type: 'error' });
       return;
     }
     const canAddTypes = (typeConf.canAddChildren || []);
     if (!canAddTypes.includes(dragNode.nodeType)) {
-      console.log('❌ 目标节点类型不允许挂载该类型子节点:', { targetType: targetParent.nodeType, dragType: dragNode.nodeType, allowedTypes: canAddTypes });
-      message.error({ content: '该类型节点不能移动到目标节点下1111111'});
+      // console.log('❌ 目标节点类型不允许挂载该类型子节点:', { targetType: targetParent.nodeType, dragType: dragNode.nodeType, allowedTypes: canAddTypes });
+      message.error({ content: '该类型节点不能移动到目标节点下'});
       return;
     }
-    console.log('✅ 内置类型节点，移动规则检查通过');
+    // console.log('✅ 内置类型节点，移动规则检查通过');
     // 可加 maxChildrenOfType 等约束
     mindMapHookInstance.moveNode?.(String(dragNodeId), String(targetParentId));
-    console.log('节点拖拽换父执行完成');
+    // console.log('节点拖拽换父执行完成');
   }
 
   return (

@@ -4,7 +4,7 @@ import { FaSave, FaDownload } from 'react-icons/fa';
 import { Panel } from './lib/ReactMindMap';
 import { pureNodeData } from './lib/utils/nodeUtils';
 import GlobalMessageBox from './lib/components/GlobalMessageBox';
-import ExportController, { ExportControllerRef } from './lib/components/ExportController';
+// import ExportController, { ExportControllerRef } from './lib/components/ExportController';
 
 // 示例1：无类型模式（所有节点为普通节点）
 const rawInitialDataNone = {
@@ -96,7 +96,7 @@ const typeConfigCustom = {
 
 function App() {
 
-  const exportRef = useRef<ExportControllerRef>(null);
+  // const exportRef = useRef<ExportControllerRef>(null);
   // const mindMapRef = useRef<any>(null); // 移除无用 ref
   // 1. 无类型模式用法
   // const [data] = useState(rawInitialDataNone);
@@ -168,23 +168,23 @@ function App() {
 
    // 获取导图数据、canvas、svg 的方法
    // const getData = () => mindMapRef.current?.getData?.() || mindMapRef.current?.state?.rootNode;
-   const getCanvas = () => document.querySelector('canvas');
-   const getSvg = () => document.querySelector('svg');
+  //  const getCanvas = () => document.querySelector('canvas');
+  //  const getSvg = () => document.querySelector('svg');
 
 
   // 顶部工具条自定义导出按钮
-  const exportButton = {
-    id: 'export',
-    label: '导出',
-    title: '导出',
-    icon: FaDownload,
-    action: () => {
-      console.log('show export modal');
-      console.log('exportRef.current:', exportRef.current);
-      exportRef.current?.open();
-    },
-    disabled: false,
-  };
+  // const exportButton = {
+  //   id: 'export',
+  //   label: '导出',
+  //   title: '导出',
+  //   icon: FaDownload,
+  //   action: () => {
+  //     console.log('show export modal');
+  //     console.log('exportRef.current:', exportRef.current);
+  //     exportRef.current?.open();
+  //   },
+  //   disabled: false,
+  // };
 
   return (
     <div className="w-full h-full flex flex-col">
@@ -195,16 +195,16 @@ function App() {
         // ref={mindMapRef} // 移除
         {...mindMapProps}
         onDataChangeDetailed={handleDataChangeDetailed}
-        topToolbarCustomButtons={[exportButton]}
+        // topToolbarCustomButtons={[exportButton]}
       />
       <GlobalMessageBox />
-      <ExportController
+      {/* <ExportController
         ref={exportRef}
         visibleTypes={['image', 'svg', 'pdf', 'markdown', 'xmind', 'txt', 'json', 'pure']}
         getData={getData}
         getCanvas={getCanvas}
         getSvg={getSvg}
-      />
+      /> */}
     </div>
   );
 }

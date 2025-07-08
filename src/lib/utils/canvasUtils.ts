@@ -202,20 +202,20 @@ export function calculateNodeDimensions(
   ctx.restore();
 
   // 调试打印
-  console.log('[calculateNodeDimensions]', {
-    text,
-    nodeType,
-    priority,
-    typeConfig,
-    priorityConfig,
-    labelWidth,
-    priorityLabelWidth,
-    betweenLabelGap,
-    afterLabelGap,
-    totalLabelWidth,
-    maxLineWidth,
-    width
-  });
+  // console.log('[calculateNodeDimensions]', {
+  //   text,
+  //   nodeType,
+  //   priority,
+  //   typeConfig,
+  //   priorityConfig,
+  //   labelWidth,
+  //   priorityLabelWidth,
+  //   betweenLabelGap,
+  //   afterLabelGap,
+  //   totalLabelWidth,
+  //   maxLineWidth,
+  //   width
+  // });
 
   const lineHeight = fontSize * 1.2;
   const height = Math.max(NODE_DEFAULT_HEIGHT, lines.length * lineHeight + TEXT_PADDING_Y * 2);
